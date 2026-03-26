@@ -313,7 +313,7 @@ const scanFace = async () => {
   if (!registeredMember) {
     setTimeout(() => {
       scanningFace.value = false
-      faceScanError.value = 'Hệ thống không tìm thấy bất kỳ hội viên nào có dữ liệu khuôn mặt. Vui lòng đăng ký trước.'
+      faceScanError.value = 'Hệ thống không tìm thấy hội viên nào có dữ liệu Face ID trong danh sách hiện tại. Vui lòng đảm bảo hội viên đã được đăng ký khuôn mặt.'
       showSnack('Lỗi: Chưa có dữ liệu Face ID!', 'error')
     }, 1000)
     return
@@ -351,7 +351,8 @@ const scanFace = async () => {
 const loadMembers = async () => {
   isLoadingMembers.value = true
   try {
-    const res = await memberService.getAll()
+    // Tăng pageSize lên 1000 để FaceID có thể tìm thấy nhiều hội viên hơn (mô phỏng)
+    const res = await memberService.getAll(1, 1000)
     let rawData = []
     if (Array.isArray(res)) rawData = res
     else if (res && (res.data || res.Data)) {
@@ -510,6 +511,12 @@ const handleCheckOut = async (id) => {
   box-shadow: 0 0 15px #4caf50;
   animation: scan 3s infinite linear;
   z-index: 5;
+}
+
+@keyframes scan {
+  0% { top: 0; }
+  50% { top: 100%; }
+  100% { top: 0; }
 }
 
 .camera-feed {

@@ -300,6 +300,8 @@ import { useAuthStore } from '@/stores/auth'
 import { dashboardService } from '@/services/dashboardService'
 
 const authStore = useAuthStore()
+
+
 const loading = ref(false)
 
 const stats = ref({
@@ -445,10 +447,15 @@ async function loadDashboard() {
     const res = await dashboardService.getStats()
     if (res?.success || res?.Success) { 
        const data = res.data || res.Data
-       if (data) stats.value = data
+       if (data) {
+         stats.value = data
+
+       }
     }
   } catch (e) {
     console.error('Dashboard load error:', e)
+// Handle error normally
+    console.error('API Error:', e)
   } finally {
     loading.value = false
   }

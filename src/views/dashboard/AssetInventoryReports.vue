@@ -82,6 +82,93 @@
     </v-row>
 
     <v-row>
+      <v-col cols="12" v-if="authStore.hasPermission('report.financial')">
+        <v-card class="rounded-xl border shadow-sm pa-6" elevation="0">
+          <div class="d-flex align-center justify-space-between mb-6">
+            <h2 class="text-h5 font-weight-bold d-flex align-center">
+              <v-icon color="indigo" class="mr-2">mdi-finance</v-icon>
+              Báo cáo Chi phí vận hành tháng ({{ costReport.month }}/{{ costReport.year }})
+            </h2>
+            <div class="d-flex gap-2 align-center">
+               <v-select
+                 v-model="selectedMonth"
+                 :items="[1,2,3,4,5,6,7,8,9,10,11,12]"
+                 label="Tháng"
+                 density="compact"
+                 variant="outlined"
+                 hide-details
+                 style="width: 100px"
+                 @update:model-value="loadCostReport"
+               ></v-select>
+               <v-select
+                 v-model="selectedYear"
+                 :items="[2024, 2025, 2026]"
+                 label="Năm"
+                 density="compact"
+                 variant="outlined"
+                 hide-details
+                 style="width: 120px"
+                 @update:model-value="loadCostReport"
+               ></v-select>
+            </div>
+          </div>
+
+          <v-row>
+            <!-- Material Costs (Module Kho) -->
+            <v-col cols="12" md="6">
+              <v-card variant="tonal" color="indigo" class="rounded-lg pa-4 h-100">
+                <div class="d-flex justify-space-between align-center mb-4">
+                  <div class="text-subtitle-1 font-weight-bold">📦 CHI PHÍ VẬT TƯ (KHO)</div>
+                  <div class="text-h6 font-weight-black">{{ formatCurrency(costReport.totalMaterialCost) }}</div>
+                </div>
+                <v-list density="compact" bg-color="transparent" class="pa-0">
+                  <v-list-item v-for="item in costReport.materialDetails" :key="item.productName" class="px-0">
+                    <v-list-item-title class="text-body-2">{{ item.productName }}</v-list-item-title>
+                    <v-list-item-subtitle class="text-caption">Số lượng: {{ item.quantity }}</v-list-item-subtitle>
+                    <template v-slot:append>
+                       <span class="text-body-2 font-weight-bold">{{ formatCurrency(item.cost) }}</span>
+                    </template>
+                  </v-list-item>
+                  <v-list-item v-if="!costReport.materialDetails.length" class="text-center py-4 text-grey">
+                    Chưa có chi phí vật tư
+                  </v-list-item>
+                </v-list>
+              </v-card>
+            </v-col>
+
+            <!-- Depreciation Costs (Module Thiết bị) -->
+            <v-col cols="12" md="6">
+              <v-card variant="tonal" color="deep-purple" class="rounded-lg pa-4 h-100">
+                <div class="d-flex justify-space-between align-center mb-4">
+                  <div class="text-subtitle-1 font-weight-bold">🛠️ CHI PHÍ KHẤU HAO (THIẾT BỊ)</div>
+                  <div class="text-h6 font-weight-black">{{ formatCurrency(costReport.totalDepreciationCost) }}</div>
+                </div>
+                <v-list density="compact" bg-color="transparent" class="pa-0">
+                  <v-list-item v-for="item in costReport.depreciationDetails" :key="item.equipmentName" class="px-0">
+                    <v-list-item-title class="text-body-2">{{ item.equipmentName }}</v-list-item-title>
+                    <v-list-item-subtitle class="text-caption">SL: {{ item.count }} máy</v-list-item-subtitle>
+                    <template v-slot:append>
+                       <span class="text-body-2 font-weight-bold">{{ formatCurrency(item.amount) }}</span>
+                    </template>
+                  </v-list-item>
+                  <v-list-item v-if="!costReport.depreciationDetails.length" class="text-center py-4 text-grey">
+                    Chưa ghi nhận khấu hao
+                  </v-list-item>
+                </v-list>
+              </v-card>
+            </v-col>
+          </v-row>
+
+          <v-divider class="my-6"></v-divider>
+          <div class="d-flex justify-end align-center">
+            <span class="text-h6 mr-4 text-grey">TỔNG CHI PHÍ VẬN HÀNH:</span>
+            <span class="text-h4 font-weight-black text-indigo">{{ formatCurrency(costReport.totalMaterialCost + costReport.totalDepreciationCost) }}</span>
+          </div>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <v-row>
       <v-col cols="12" md="6">
         <v-card class="rounded-xl border shadow-sm pa-6 pt-4" elevation="0">
           <v-card-title class="px-0 mb-4 font-weight-bold">Trạng thái vận hành thiết bị</v-card-title>
@@ -134,8 +221,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { reportService } from '@/services/reportService'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
 const loading = ref(false)
+const selectedMonth = ref(new Date().getMonth() + 1)
+const selectedYear = ref(new Date().getFullYear())
+
 const stats = ref({
   totalProducts: 0,
   totalStockItems: 0,
@@ -148,6 +240,15 @@ const stats = ref({
   statusCounts: []
 })
 
+const costReport = ref({
+  month: 0,
+  year: 0,
+  totalMaterialCost: 0,
+  materialDetails: [],
+  totalDepreciationCost: 0,
+  depreciationDetails: []
+})
+
 const loadStats = async () => {
   loading.value = true
   try {
@@ -155,6 +256,16 @@ const loadStats = async () => {
     if (res.success) stats.value = res.data
   } finally {
     loading.value = false
+  }
+}
+
+const loadCostReport = async () => {
+  if (!authStore.hasPermission('report.financial')) return
+  try {
+    const res = await reportService.getOperatingCostReport(selectedMonth.value, selectedYear.value)
+    if (res.success) costReport.value = res.data
+  } catch (e) {
+    console.error('Error loading cost report:', e)
   }
 }
 
@@ -178,7 +289,10 @@ const getMaintRatio = () => {
   return Math.round((stats.value.totalMaintenanceCosts / stats.value.totalOriginalValue) * 100)
 }
 
-onMounted(loadStats)
+onMounted(() => {
+  loadStats()
+  loadCostReport()
+})
 </script>
 
 <style scoped>

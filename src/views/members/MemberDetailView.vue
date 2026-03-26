@@ -149,7 +149,10 @@
               <v-window-item value="subs">
                 <div class="d-flex justify-space-between align-center mb-4">
                   <h3 class="text-h6 font-weight-bold">Lịch sử đăng ký</h3>
-                  <v-btn color="primary" prepend-icon="mdi-plus" size="small" @click="openRenew(null)">Đăng ký gói mới</v-btn>
+                  <v-btn v-if="!activeSubscription" color="primary" prepend-icon="mdi-plus" size="small" @click="openRenew(null)">Đăng ký gói mới</v-btn>
+                  <v-chip v-else color="success" variant="tonal" size="small">
+                    <v-icon start>mdi-check-circle</v-icon> Đã có gói tập Active
+                  </v-chip>
                 </div>
                 <v-data-table
                   :headers="subHeaders"
@@ -638,7 +641,8 @@ const confirmRenew = async () => {
       alert(res.message || res.Message || 'Thao tác thành công!')
       loadSubscriptions()
     } else {
-      alert(res.message || res.Message || 'Thao tác thất bại')
+      // Hiển thị trực tiếp lỗi nghiệp vụ từ backend
+      alert(res.message || res.Message || 'Thao tác không thành công. Vui lòng kiểm tra lại trạng thái hội viên.')
     }
   } catch (e) {
     console.error('Renew error details:', e)

@@ -37,5 +37,17 @@ export const trainerService = {
   async removeAssignment(assignmentId) {
     const response = await api.delete(`/Trainers/unassign/${assignmentId}`)
     return response.data
+  },
+  async getMySchedule() {
+    const response = await api.get('/Trainers/me/schedule')
+    return response.data
+  },
+  async getScheduleById(id) {
+    const response = await api.get(`/Trainers/${id}/schedule`)
+    return response.data
+  },
+  async getGlobalSchedule() {
+    const response = await api.get('/Trainers/summary/schedule')
+    return response.data
   }
 }

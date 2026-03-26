@@ -43,7 +43,10 @@ export const useEquipmentStore = defineStore('equipment', {
     },
     async logMaintenance(data) {
       const r = await equipmentService.logMaintenance(data)
-      if (r.success) await this.fetchMaintenanceLogs(data.equipmentId)
+      if (r.success) {
+        await this.fetchEquipments()
+        await this.fetchMaintenanceLogs(data.equipmentId)
+      }
       return r
     },
     async fetchMaintenanceLogs(equipmentId = null) {

@@ -166,7 +166,25 @@ const handleLogin = async () => {
         localStorage.removeItem('remember_password')
       }
       
-      router.push('/dashboard')
+      // Redirect based on permissions
+      if (authStore.hasPermission('report.read')) {
+        router.push('/dashboard')
+      } else {
+        // Fallback to find first allowed route if doesn't have dashboard access
+        const routes = router.getRoutes()
+        const mainRoute = routes.find(r => r.path === '/')
+        const children = mainRoute?.children || []
+        
+        let target = '/profile'
+        for (const child of children) {
+          if (child.path === '' || child.path === 'dashboard') continue
+          if (!child.meta?.permission || authStore.hasPermission(child.meta.permission)) {
+            target = `/${child.path}`
+            break
+          }
+        }
+        router.push(target)
+      }
     } else {
       errorMessage.value = result.message || 'Tên đăng nhập hoặc mật khẩu không đúng.'
     }

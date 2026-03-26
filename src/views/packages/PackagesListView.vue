@@ -5,7 +5,7 @@
         <h1 class="text-h4 font-weight-bold">Packages</h1>
         <p class="text-subtitle-1 text-grey mt-1">Manage membership packages</p>
       </div>
-      <v-btn color="primary" size="large" prepend-icon="mdi-plus" @click="openCreate">
+      <v-btn v-if="authStore.hasPermission('package.create')" color="primary" size="large" prepend-icon="mdi-plus" @click="openCreate">
         Add Package
       </v-btn>
     </div>
@@ -18,6 +18,9 @@
               <div>
                 <v-chip size="x-small" class="mb-2" :color="pkg.isActive ? 'success' : 'error'">
                   {{ pkg.isActive ? 'Active' : 'Inactive' }}
+                </v-chip>
+                <v-chip v-if="pkg.hasPT" size="x-small" class="ml-2 mb-2" color="primary" variant="flat">
+                  <v-icon start size="12">mdi-account-star</v-icon> Có PT
                 </v-chip>
                 <div class="text-h6 font-weight-bold text-white">{{ pkg.name || pkg.packageName }}</div>
               </div>
@@ -32,8 +35,9 @@
                   />
                 </template>
                 <v-list density="compact">
-                  <v-list-item prepend-icon="mdi-pencil" title="Edit" @click="openEdit(pkg)" />
+                  <v-list-item v-if="authStore.hasPermission('package.update')" prepend-icon="mdi-pencil" title="Edit" @click="openEdit(pkg)" />
                   <v-list-item
+                    v-if="authStore.hasPermission('package.delete')"
                     prepend-icon="mdi-delete"
                     title="Delete"
                     base-color="error"
@@ -162,6 +166,16 @@
                 />
               </v-col>
               <v-col cols="12">
+                <v-switch
+                  v-model="form.hasPT"
+                  label="Gói tập có kèm PT (Personal Trainer)"
+                  color="primary"
+                  inset
+                  :disabled="saving"
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12">
                 <v-textarea
                   v-model="form.description"
                   label="Description"
@@ -214,12 +228,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { usePackageStore } from '@/stores/package'
+import { useAuthStore } from '@/stores/auth'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { formatCurrency } from '@/utils/helpers'
 
 // ĐÃ XÓA: import { packageService } ... (Không cần thiết vì dùng qua Store)
 
 const packageStore = usePackageStore()
+const authStore = useAuthStore()
 
 const formDialog = ref(false)
 const deleteDialog = ref(false)
@@ -239,6 +255,7 @@ const defaultForm = {
   durationInMonths: 1, // Thường backend cần cả tháng
   sessionLimit: null,
   description: '',
+  hasPT: false,
   isActive: true,
 }
 const form = ref({ ...defaultForm })
@@ -276,6 +293,7 @@ const openEdit = (pkg) => {
     durationInMonths: pkg.durationInMonths || 1,
     sessionLimit: pkg.sessionLimit || null,
     description: pkg.description || '',
+    hasPT: pkg.hasPT || false,
     isActive: pkg.isActive,
   }
   formDialog.value = true

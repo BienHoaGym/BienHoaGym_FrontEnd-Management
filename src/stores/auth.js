@@ -39,6 +39,22 @@ export const useAuthStore = defineStore('auth', {
         }
         return state.user.role === roles
       }
+    },
+    
+    // --- KIỂM TRA QUYỀN RBAC (DÙNG PERMISSIONS) ---
+    hasPermission: (state) => {
+      return (permission) => {
+        if (!state.user) return false
+        
+        // Admin/Manager mặc định có quyền cao nhất
+        if (state.user.role === 'Admin' || state.user.role === 'Manager') return true
+        
+        // Kiểm tra trong danh sách permissions
+        const perms = state.user.permissions || []
+        if (perms.includes('*')) return true
+        
+        return perms.includes(permission)
+      }
     }
   },
 

@@ -7,8 +7,16 @@ import router from './router'
 import vuetify from './plugins/vuetify'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
+
+
 const app = createApp(App)
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
+
+// Initialize Auth
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore(pinia)
+authStore.initializeAuth()
 app.use(router)
 app.use(vuetify)
 app.component('ConfirmDialog', ConfirmDialog)

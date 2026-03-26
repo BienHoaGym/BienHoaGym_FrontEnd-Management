@@ -12,6 +12,12 @@ export const providerService = {
   getHistory(id) {
     return api.get(`${PROVIDER_API}/${id}/history`).then(r => r.data);
   },
+  getProducts(id) {
+    return api.get(`${PROVIDER_API}/${id}/products`).then(r => r.data);
+  },
+  getEquipments(id) {
+    return api.get(`${PROVIDER_API}/${id}/equipments`).then(r => r.data);
+  },
   create(data) {
     return api.post(PROVIDER_API, data).then(r => r.data);
   },

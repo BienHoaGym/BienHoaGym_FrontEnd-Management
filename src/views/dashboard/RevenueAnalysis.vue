@@ -63,18 +63,44 @@
       </v-card-text>
     </v-card>
 
-    <!-- 1️⃣ Tổng quan doanh thu (Cards) -->
+    <!-- 1️⃣ Tổng quan tài chính (Tháng này) -->
     <v-row class="mb-6">
-      <v-col v-for="(card, i) in overviewCards" :key="i" cols="12" sm="6" md="3">
+      <v-col cols="12" sm="6" md="3">
+        <v-card rounded="lg" elevation="2" class="bg-primary-gradient" theme="dark">
+          <v-card-text class="pa-4">
+             <div class="text-overline opacity-70">Tổng doanh thu (tháng)</div>
+             <div class="text-h4 font-weight-black mb-1">{{ formatCurrency(reportData.overview.revenueThisMonth) }}</div>
+             <div class="text-caption">Đã bao gồm POS & Đăng ký</div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-card rounded="lg" elevation="2" class="bg-error-gradient" theme="dark">
+          <v-card-text class="pa-4">
+             <div class="text-overline opacity-70">Tổng chi phí vận hành</div>
+             <div class="text-h4 font-weight-black mb-1">{{ formatCurrency(reportData.overview.totalExpenseThisMonth) }}</div>
+             <div class="text-caption">Kho + Bảo trì + Khấu hao</div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-card rounded="lg" elevation="2" class="bg-success-gradient" theme="dark">
+          <v-card-text class="pa-4">
+             <div class="text-overline opacity-70">Lợi nhuận ròng</div>
+             <div class="text-h4 font-weight-black mb-1">{{ formatCurrency(reportData.overview.netProfitThisMonth) }}</div>
+             <div class="text-caption">Sau khi trừ các chi phí</div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
         <v-card rounded="lg" elevation="2">
           <v-card-text class="pa-4">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <div class="text-subtitle-2 text-grey-darken-1 font-weight-bold">{{ card.title }}</div>
-              <v-icon :color="card.color" size="24">{{ card.icon }}</v-icon>
-            </div>
-            <div class="text-h4 font-weight-black" :class="`text-${card.color}`">
-              {{ card.isCurrency ? formatCurrency(card.value, true) : card.value }}
-            </div>
+             <div class="d-flex justify-space-between align-center mb-1">
+               <div class="text-overline text-grey">Hội viên mới</div>
+               <v-icon color="info">mdi-account-plus</v-icon>
+             </div>
+             <div class="text-h4 font-weight-black text-info">{{ reportData.overview.newMembersCount }}</div>
+             <div class="text-caption text-grey">Trong khoảng thời gian lọc</div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -179,7 +205,7 @@
 
       <!-- 5️⃣ Doanh thu theo HLV (Trainer) -->
       <v-col cols="12" md="6">
-        <v-card rounded="lg" elevation="2">
+        <v-card rounded="lg" elevation="2" class="h-100">
           <v-card-title class="pa-4 d-flex align-center">
             Doanh thu theo HLV
             <v-spacer></v-spacer>
@@ -207,6 +233,43 @@
               </tr>
             </tbody>
           </v-table>
+        </v-card>
+      </v-col>
+
+      <!-- 6️⃣ Phân tích Chi phí vận hành -->
+      <v-col cols="12" md="12" class="mt-6">
+        <v-card rounded="lg" elevation="2">
+          <v-card-title class="pa-4 d-flex align-center">
+            <v-icon color="error" class="mr-2">mdi-chart-pie</v-icon>
+            Phân tích Chi phí vận hành (tháng này)
+          </v-card-title>
+          <v-divider></v-divider>
+          <v-row no-gutters>
+            <v-col cols="12" md="4" class="pa-4 border-e">
+               <div class="d-flex justify-space-between align-center mb-4">
+                  <div class="text-subtitle-1 font-weight-bold">Vật tư & Hàng hóa</div>
+                  <v-chip color="error" size="small">{{ ((reportData.totalMaterialExpense / (reportData.overview.totalExpenseThisMonth || 1)) * 100).toFixed(0) }}%</v-chip>
+               </div>
+               <div class="text-h5 font-weight-black text-error mb-2">{{ formatCurrency(reportData.totalMaterialExpense) }}</div>
+               <div class="text-caption text-grey">Chi phí vật tư tiêu hao, hàng hỏng, hao hụt từ kho.</div>
+            </v-col>
+            <v-col cols="12" md="4" class="pa-4 border-e">
+               <div class="d-flex justify-space-between align-center mb-4">
+                  <div class="text-subtitle-1 font-weight-bold">Bảo trì & Sửa chữa</div>
+                  <v-chip color="warning" size="small">{{ ((reportData.totalMaintenanceExpense / (reportData.overview.totalExpenseThisMonth || 1)) * 100).toFixed(0) }}%</v-chip>
+               </div>
+               <div class="text-h5 font-weight-black text-warning mb-2">{{ formatCurrency(reportData.totalMaintenanceExpense) }}</div>
+               <div class="text-caption text-grey">Chi phí thuê thợ, linh kiện thay thế cho thiết bị.</div>
+            </v-col>
+            <v-col cols="12" md="4" class="pa-4">
+               <div class="d-flex justify-space-between align-center mb-4">
+                  <div class="text-subtitle-1 font-weight-bold">Khấu hao tài sản</div>
+                  <v-chip color="grey" size="small">{{ ((reportData.totalDepreciationExpense / (reportData.overview.totalExpenseThisMonth || 1)) * 100).toFixed(0) }}%</v-chip>
+               </div>
+               <div class="text-h5 font-weight-black text-grey-darken-2 mb-2">{{ formatCurrency(reportData.totalDepreciationExpense) }}</div>
+               <div class="text-caption text-grey">Phân bổ giá trị thiết bị theo thời gian sử dụng.</div>
+            </v-col>
+          </v-row>
         </v-card>
       </v-col>
     </v-row>
@@ -272,6 +335,8 @@ const reportData = ref({
     revenueToday: 0,
     revenueThisMonth: 0,
     revenueThisYear: 0,
+    totalExpenseThisMonth: 0,
+    netProfitThisMonth: 0,
     newMembersCount: 0,
     totalPackagesSold: 0
   },
@@ -279,7 +344,10 @@ const reportData = ref({
   revenueByPackage: [],
   revenueByTrainer: [],
   revenueByClass: [],
-  recentTransactions: []
+  recentTransactions: [],
+  totalMaterialExpense: 0,
+  totalMaintenanceExpense: 0,
+  totalDepreciationExpense: 0
 })
 
 const dateRangeOptions = [
@@ -299,12 +367,7 @@ const transactionHeaders = [
   { title: 'HTTT', key: 'paymentMethod', align: 'center' }
 ]
 
-const overviewCards = computed(() => [
-  { title: 'Doanh thu hôm nay', value: reportData.value.overview.revenueToday, icon: 'mdi-cash-today', color: 'success', isCurrency: true },
-  { title: 'Doanh thu tháng này', value: reportData.value.overview.revenueThisMonth, icon: 'mdi-currency-usd', color: 'primary', isCurrency: true },
-  { title: 'Hội viên mới', value: reportData.value.overview.newMembersCount, icon: 'mdi-account-plus', color: 'info' },
-  { title: 'Gói tập đã bán', value: reportData.value.overview.totalPackagesSold, icon: 'mdi-package-variant', color: 'orange' }
-])
+
 
 const sortedTopPackages = computed(() => {
   return [...reportData.value.revenueByPackage]
@@ -470,4 +533,15 @@ circle:hover {
 path {
   transition: d 0.5s ease-in-out;
 }
+
+.bg-primary-gradient {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+}
+.bg-success-gradient {
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+}
+.bg-error-gradient {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+.opacity-70 { opacity: 0.7; }
 </style>

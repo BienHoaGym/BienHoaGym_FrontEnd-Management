@@ -21,6 +21,11 @@ export const reportService = {
     return response.data
   },
 
+  async getOperatingCostReport(month, year) {
+    const response = await api.get('/Reports/operating-costs', { params: { month, year } })
+    return response.data
+  },
+
   /**
    * Seed dữ liệu mẫu cho báo cáo
    */

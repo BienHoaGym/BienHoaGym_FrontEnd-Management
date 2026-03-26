@@ -58,7 +58,8 @@ export const useClassStore = defineStore('class', {
         }
         return { success: false, message: r.message }
       } catch (e) {
-        return { success: false, message: e.response?.data?.message || 'Delete failed' }
+        const errorMsg = e.response?.data?.message || e.response?.data?.Message || 'Lỗi không xác định khi xóa lớp'
+        return { success: false, message: errorMsg }
       } finally { this.loading = false }
     },
     async enroll(classId, memberId) {
