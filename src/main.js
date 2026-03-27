@@ -7,8 +7,14 @@ import router from './router'
 import vuetify from './plugins/vuetify'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
+import { setupGlobalErrorCapture } from '@/composables/useApiErrorHandler'
+
 const app = createApp(App)
 app.use(createPinia())
+
+// Initialize Global AI Error Capture
+setupGlobalErrorCapture()
+
 app.use(router)
 app.use(vuetify)
 app.component('ConfirmDialog', ConfirmDialog)

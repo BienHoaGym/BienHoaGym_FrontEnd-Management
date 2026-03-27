@@ -5,7 +5,7 @@
         <h1 class="text-h4 font-weight-bold">Quản lý Lớp học & Lịch tập</h1>
         <p class="text-subtitle-1 text-grey mt-1">Lên lịch, đăng ký và điểm danh học viên</p>
       </div>
-      <v-btn color="primary" size="large" prepend-icon="mdi-plus" @click="openCreate" class="text-capitalize rounded-lg shadow-sm">
+      <v-btn v-if="authStore.canManageSystem" color="primary" size="large" prepend-icon="mdi-plus" @click="openCreate" class="text-capitalize rounded-lg shadow-sm">
         Thêm Lớp học mới
       </v-btn>
     </div>
@@ -34,9 +34,9 @@
                 <div class="text-h5 font-weight-bold text-white mb-1">{{ cls.className }}</div>
                 <div class="text-subtitle-2 text-white opacity-90 d-flex align-center">
                   <v-icon size="small" class="mr-1">mdi-clock-outline</v-icon>
-                  {{ formatTime24(cls.startTime) }} – {{ formatTime24(cls.endTime) }}
+                  {{ formatTime24(cls.startTime || cls.StartTime) }} – {{ formatTime24(cls.endTime || cls.EndTime) }}
                   <span class="mx-2">|</span>
-                  {{ translateDay(cls.scheduleDay) }}
+                  {{ translateDay(cls.scheduleDay || cls.ScheduleDay) }}
                 </div>
               </div>
               <v-menu transition="scale-transition">
@@ -44,11 +44,11 @@
                   <v-btn v-bind="props" icon="mdi-dots-vertical" size="small" variant="tonal" color="white" />
                 </template>
                 <v-list density="compact" class="rounded-lg">
-                  <v-list-item prepend-icon="mdi-pencil-outline" title="Chỉnh sửa" @click="openEdit(cls)" />
+                  <v-list-item v-if="authStore.canManageSystem" prepend-icon="mdi-pencil-outline" title="Chỉnh sửa" @click="openEdit(cls)" />
                   <v-list-item prepend-icon="mdi-account-plus-outline" title="Đăng ký HV" @click="openEnroll(cls)" />
                   <v-list-item prepend-icon="mdi-clipboard-check-outline" title="Điểm danh" @click="openAttendance(cls)" />
-                  <v-divider class="my-1" />
-                  <v-list-item prepend-icon="mdi-delete-outline" title="Xóa lớp" base-color="error" @click="confirmDelete(cls)" />
+                  <v-divider v-if="authStore.canManageSystem" class="my-1" />
+                  <v-list-item v-if="authStore.canManageSystem" prepend-icon="mdi-delete-outline" title="Xóa lớp" base-color="error" @click="confirmDelete(cls)" />
                 </v-list>
               </v-menu>
             </div>
@@ -58,11 +58,11 @@
             <!-- Trainer -->
             <div class="d-flex align-center mb-4 p-2 bg-grey-lighten-4 rounded-lg">
               <v-avatar color="primary" size="32" class="mr-3">
-                <span class="text-caption text-white font-weight-bold">{{ cls.trainerName?.charAt(0)?.toUpperCase() }}</span>
+                <span class="text-caption text-white font-weight-bold">{{ getTrainerName(cls).charAt(0).toUpperCase() }}</span>
               </v-avatar>
               <div>
                 <div class="text-caption text-grey">Huấn luyện viên</div>
-                <div class="text-body-2 font-weight-bold">{{ cls.trainerName || 'Chưa phân công' }}</div>
+                <div class="text-body-2 font-weight-bold">{{ getTrainerName(cls) }}</div>
               </div>
             </div>
 
@@ -70,14 +70,14 @@
             <div class="mb-4">
               <div class="d-flex justify-space-between text-body-2 mb-2">
                 <span class="font-weight-medium">Sĩ số lớp</span>
-                <span :class="cls.isFull ? 'text-error font-weight-bold' : 'text-primary font-weight-bold'">
-                  {{ cls.currentEnrollment }} / {{ cls.maxCapacity }}
-                  <v-chip v-if="cls.isFull" size="x-small" color="error" class="ml-2 font-weight-bold">FULL</v-chip>
+                <span :class="(cls.isFull || cls.IsFull) ? 'text-error font-weight-bold' : 'text-primary font-weight-bold'">
+                  {{ cls.currentEnrollment ?? cls.CurrentEnrollment }} / {{ cls.maxCapacity ?? cls.MaxCapacity }}
+                  <v-chip v-if="cls.isFull || cls.IsFull" size="x-small" color="error" class="ml-2 font-weight-bold">FULL</v-chip>
                 </span>
               </div>
               <v-progress-linear
-                :model-value="(cls.currentEnrollment / cls.maxCapacity) * 100"
-                :color="cls.isFull ? 'error' : 'primary'"
+                :model-value="((cls.currentEnrollment ?? cls.CurrentEnrollment) / (cls.maxCapacity ?? cls.MaxCapacity)) * 100"
+                :color="(cls.isFull || cls.IsFull) ? 'error' : 'primary'"
                 rounded
                 height="8"
                 class="rounded-pill"
@@ -350,9 +350,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useClassStore } from '@/stores/class'
 import { useTrainerStore } from '@/stores/trainer'
 import { useMemberStore } from '@/stores/member'
+import { useAuthStore } from '@/stores/auth'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 const classStore = useClassStore()
+const authStore = useAuthStore()
 const trainerStore = useTrainerStore()
 const memberStore = useMemberStore()
 
@@ -440,7 +442,10 @@ const filteredClasses = computed(() => {
 })
 
 const trainerOptions = computed(() =>
-  trainerStore.activeTrainers.map(t => ({ id: t.id, label: `${t.fullName} (${t.specialization || 'PT'})` }))
+  trainerStore.activeTrainers.map(t => ({ 
+    id: t.id || t.Id, 
+    label: `${t.fullName || t.FullName} (${t.specialization || t.Specialization || 'PT'})` 
+  }))
 )
 
 const memberOptions = computed(() =>
@@ -451,6 +456,15 @@ const formatTime24 = (t) => {
   if (!t) return ''
   if (typeof t === 'string' && t.includes(':')) return t.substring(0, 5)
   return t
+}
+
+const getTrainerName = (cls) => {
+  const name = cls.trainerName || cls.TrainerName
+  if (name) return name
+
+  // Fallback: Tìm trong store nếu backend chưa kịp Include dữ liệu Trainer
+  const trainer = trainerStore.trainers.find(t => (t.id || t.Id) === (cls.trainerId || cls.TrainerId))
+  return trainer ? (trainer.fullName || trainer.FullName) : 'Chưa phân công'
 }
 
 const showSnack = (msg, color = 'success') => { snack.value = { show: true, message: msg, color } }
@@ -528,11 +542,12 @@ const handleDelete = async () => {
   if (result.success) { deleteDialog.value = false; showSnack('Đã xóa lớp học!') }
   else showSnack(result.message, 'error')
 }
-
 onMounted(() => {
-  classStore.fetchAll()
-  trainerStore.fetchAll()
-  memberStore.fetchMembers(1, 100)
+  if (authStore.hasPermission('class.read')) {
+    classStore.fetchAll()
+    trainerStore.fetchAll()
+    memberStore.fetchMembers(1, 100)
+  }
 })
 </script>
 

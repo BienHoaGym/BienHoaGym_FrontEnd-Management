@@ -192,9 +192,11 @@ import { useMemberStore } from '@/stores/member'
 import MemberFormDialog from '@/components/members/MemberFormDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { formatDate, debounce } from '@/utils/helpers'
+import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 
 const router = useRouter()
 const memberStore = useMemberStore()
+const { handleError } = useApiErrorHandler()
 
 // State
 const searchKeyword = ref('')
@@ -227,6 +229,7 @@ const getStatusColor = (status) => {
   switch (status) {
     case 'Active': return 'success'
     case 'Prospective': return 'orange'
+    case 'Pending': return 'warning'
     case 'Inactive': return 'grey'
     case 'Suspended': return 'error'
     default: return 'grey'
@@ -235,17 +238,18 @@ const getStatusColor = (status) => {
 
 const getStatusText = (status) => {
   switch (status) {
-    case 'Active': return 'Hoạt động'
+    case 'Active': return 'Đang hoạt động'
     case 'Prospective': return 'Tiềm năng'
+    case 'Pending': return 'Chờ thanh toán'
     case 'Inactive': return 'Ngừng tập'
-    case 'Suspended': return 'Đình chỉ'
+    case 'Suspended': return 'Tạm khóa'
     default: return status
   }
 }
 
 // Methods
-const refreshData = () => {
-  memberStore.fetchMembers(currentPage.value, 10)
+const refreshData = async () => {
+  const result = await memberStore.fetchMembers(currentPage.value, 10)
 }
 
 const handleSearch = debounce((keyword) => {
@@ -299,7 +303,8 @@ const handleDelete = async () => {
       showSnackbar(result.message || 'Xóa thất bại', 'error')
     }
   } catch (err) {
-    showSnackbar('Đã xảy ra lỗi', 'error')
+    showSnackbar('Đã xảy ra lỗi khi xóa hội viên', 'error')
+    handleError(err, { url: '/api/members/delete' })
   } finally {
     deleting.value = false
   }
@@ -310,6 +315,7 @@ const onSaved = () => {
     ? 'Cập nhật hội viên thành công'
     : 'Thêm hội viên mới thành công'
   showSnackbar(message)
+  refreshData()
 }
 
 onMounted(() => {

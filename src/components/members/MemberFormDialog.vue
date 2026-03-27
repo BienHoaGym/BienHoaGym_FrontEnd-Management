@@ -5,7 +5,7 @@
       <!-- Title -->
       <v-card-title class="d-flex align-center pa-6 bg-primary text-white">
         <v-icon class="mr-3">{{ isEdit ? 'mdi-account-edit' : 'mdi-account-plus' }}</v-icon>
-        <span>{{ isEdit ? 'Edit Member' : 'Create New Member' }}</span>
+        <span>{{ isEdit ? 'Chỉnh sửa Hội viên' : 'Thêm mới Hội viên' }}</span>
         <v-spacer />
         <v-btn icon="mdi-close" variant="text" color="white" @click="close" />
       </v-card-title>
@@ -18,7 +18,7 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.fullName"
-                label="Full Name *"
+                label="Họ và tên *"
                 prepend-inner-icon="mdi-account"
                 variant="outlined"
                 density="comfortable"
@@ -31,7 +31,7 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.phoneNumber"
-                label="Phone Number *"
+                label="Số điện thoại *"
                 prepend-inner-icon="mdi-phone"
                 variant="outlined"
                 density="comfortable"
@@ -45,13 +45,13 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.email"
-                label="Email"
+                label="Địa chỉ Email"
                 prepend-inner-icon="mdi-email"
                 variant="outlined"
                 density="comfortable"
                 :rules="[rules.email]"
                 :disabled="saving"
-                placeholder="example@email.com"
+                placeholder="vidu@email.com"
               />
             </v-col>
 
@@ -59,7 +59,7 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.dateOfBirth"
-                label="Date of Birth"
+                label="Ngày sinh"
                 prepend-inner-icon="mdi-calendar"
                 variant="outlined"
                 density="comfortable"
@@ -73,7 +73,7 @@
               <v-select
                 v-model="form.gender"
                 :items="genderOptions"
-                label="Gender"
+                label="Giới tính"
                 prepend-inner-icon="mdi-gender-male-female"
                 variant="outlined"
                 density="comfortable"
@@ -86,7 +86,7 @@
             <v-col cols="12">
               <v-textarea
                 v-model="form.address"
-                label="Address"
+                label="Địa chỉ"
                 prepend-inner-icon="mdi-map-marker"
                 variant="outlined"
                 density="comfortable"
@@ -99,7 +99,7 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.emergencyContact"
-                label="Emergency Contact Name"
+                label="Người liên hệ khẩn cấp"
                 prepend-inner-icon="mdi-account-alert"
                 variant="outlined"
                 density="comfortable"
@@ -111,7 +111,7 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="form.emergencyPhone"
-                label="Emergency Phone"
+                label="Số điện thoại khẩn cấp"
                 prepend-inner-icon="mdi-phone-alert"
                 variant="outlined"
                 density="comfortable"
@@ -125,7 +125,7 @@
             <v-col cols="12">
               <v-textarea
                 v-model="form.notes"
-                label="Notes"
+                label="Ghi chú"
                 prepend-inner-icon="mdi-note-text"
                 variant="outlined"
                 density="comfortable"
@@ -141,10 +141,10 @@
       <v-divider />
       <v-card-actions class="pa-4">
         <v-spacer />
-        <v-btn variant="outlined" :disabled="saving" @click="close"> Cancel </v-btn>
+        <v-btn variant="outlined" :disabled="saving" @click="close"> Hủy </v-btn>
         <v-btn color="primary" :loading="saving" :disabled="saving" @click="handleSubmit">
           <v-icon left>{{ isEdit ? 'mdi-content-save' : 'mdi-plus' }}</v-icon>
-          {{ isEdit ? 'Save Changes' : 'Create Member' }}
+          {{ isEdit ? 'Lưu thay đổi' : 'Tạo Hội viên' }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -186,13 +186,17 @@ const defaultForm = {
 }
 
 const form = ref({ ...defaultForm })
-const genderOptions = ['Male', 'Female', 'Other']
+const genderOptions = [
+  { title: 'Nam', value: 'Male' },
+  { title: 'Nữ', value: 'Female' },
+  { title: 'Khác', value: 'Other' }
+]
 
 const rules = {
-  required: (v) => !!v || 'This field is required',
-  email: (v) => !v || /.+@.+\..+/.test(v) || 'Invalid email format',
-  phone: (v) => !v || /^0\d{9}$/.test(v) || 'Must be 10 digits starting with 0',
-  maxLength: (max) => (v) => !v || v.length <= max || `Max ${max} characters`,
+  required: (v) => !!v || 'Trường này là bắt buộc',
+  email: (v) => !v || /.+@.+\..+/.test(v) || 'Email không hợp lệ',
+  phone: (v) => !v || /^0\d{9}$/.test(v) || 'Số điện thoại phải có 10 chữ số và bắt đầu bằng 0',
+  maxLength: (max) => (v) => !v || v.length <= max || `Tối đa ${max} ký tự`,
 }
 
 const loadMember = async (id) => {

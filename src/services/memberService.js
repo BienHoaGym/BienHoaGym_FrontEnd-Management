@@ -2,9 +2,9 @@
 import api from './api'
 
 export const memberService = {
-  async getAll(pageNumber = 1, pageSize = 10) {
+  async getAll(page = 1, pageSize = 10) {
     const response = await api.get('/Members', {
-      params: { pageNumber, pageSize },
+      params: { page, pageSize },
     })
     return response.data
   },

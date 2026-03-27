@@ -3,7 +3,7 @@
     <div class="d-flex align-center justify-space-between mb-6">
       <div>
         <h1 class="text-h4 font-weight-bold">
-          Xin chào, {{ authStore.user?.fullName || 'Admin' }}! 👋
+          Xin chào, {{ authStore?.user?.fullName || 'Hội viên' }}! 👋
         </h1>
         <p class="text-subtitle-1 text-grey mt-1">
           {{ formatDate(new Date()) }} — Tổng quan hôm nay
@@ -298,8 +298,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { dashboardService } from '@/services/dashboardService'
+import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 
 const authStore = useAuthStore()
+const { handleError } = useApiErrorHandler()
 const loading = ref(false)
 
 const stats = ref({
@@ -445,10 +447,14 @@ async function loadDashboard() {
     const res = await dashboardService.getStats()
     if (res?.success || res?.Success) { 
        const data = res.data || res.Data
-       if (data) stats.value = data
+       if (data) {
+         stats.value = data
+       }
     }
   } catch (e) {
     console.error('Dashboard load error:', e)
+    // Tự động gọi AI chẩn đoán lỗi nếu load thất bại
+    handleError(e, { url: '/api/dashboard/stats' })
   } finally {
     loading.value = false
   }

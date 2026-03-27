@@ -30,10 +30,10 @@ import { computed } from 'vue'
 
 const props = defineProps({
   modelValue: Boolean,
-  title: { type: String, default: 'Confirm Action' },
-  message: { type: String, default: 'Are you sure?' },
-  confirmText: { type: String, default: 'Confirm' },
-  cancelText: { type: String, default: 'Cancel' },
+  title: { type: String, default: 'Xác nhận hành động' },
+  message: { type: String, default: 'Bạn có chắc chắn muốn thực hiện?' },
+  confirmText: { type: String, default: 'Xác nhận' },
+  cancelText: { type: String, default: 'Hủy' },
   type: { type: String, default: 'warning' }, // warning, error, info
   loading: { type: Boolean, default: false },
 })

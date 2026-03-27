@@ -252,7 +252,7 @@ const pkgOptions = computed(() =>
   pkgStore.activePackages.map((p) => ({ id: p.id, label: `${p.name} — ${formatCurrency(p.price)}` }))
 )
 
-const statusColor = (status) => ({ Active: 'success', Pending: 'warning', Expired: 'error', Cancelled: 'grey' })[status] || 'grey'
+const statusColor = (status) => ({ Active: 'success', Pending: 'warning', Expired: 'error', Cancelled: 'grey', Suspended: 'deep-purple' })[status] || 'grey'
 
 const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0)
 

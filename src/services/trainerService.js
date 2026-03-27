@@ -37,5 +37,9 @@ export const trainerService = {
   async removeAssignment(assignmentId) {
     const response = await api.delete(`/Trainers/unassign/${assignmentId}`)
     return response.data
+  },
+  async getMySchedule() {
+    const response = await api.get('/Trainers/me/schedule')
+    return response.data
   }
 }

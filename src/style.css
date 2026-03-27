@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;700;800&display=swap');
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Be Vietnam Pro', sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -23,8 +25,9 @@ a:hover {
 }
 
 body {
+  font-family: 'Be Vietnam Pro', sans-serif !important;
   margin: 0;
-  display: flex;
+  display: flex !important;
   place-items: center;
   min-width: 320px;
   min-height: 100vh;

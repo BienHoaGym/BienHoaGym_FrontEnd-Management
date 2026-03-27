@@ -132,33 +132,81 @@
             class="equipment-table"
           >
             <template #[`item.name`]="{ item }">
-              <div class="py-2">
-                <div class="font-weight-bold text-primary">{{ item.name }}</div>
-                <div class="text-caption text-grey">SN: {{ item.serialNumber || '---' }} | Code: {{ item.equipmentCode }}</div>
-                <v-chip size="x-small" color="grey-lighten-1" class="mt-1" variant="tonal">{{ item.categoryName || 'N/A' }}</v-chip>
+              <div class="d-flex align-center py-3">
+                <v-avatar size="48" color="primary" variant="tonal" class="rounded-lg mr-4 border">
+                  <v-icon size="24">{{ getCategoryIcon(item.categoryName) }}</v-icon>
+                </v-avatar>
+                <div>
+                  <div class="font-weight-black text-body-1 text-primary mb-0" style="line-height: 1.2">{{ item.name }}</div>
+                  <div class="text-caption text-grey-darken-1 font-weight-medium">
+                    <span class="mr-2">#{{ item.equipmentCode }}</span>
+                    <span v-if="item.serialNumber">• SN: {{ item.serialNumber }}</span>
+                    <span v-if="item.weight">• {{ item.weight }} kg</span>
+                  </div>
+                  <div class="d-flex align-center mt-1">
+                    <v-chip size="x-small" color="primary" variant="flat" class="mr-1 px-2">{{ item.categoryName || 'Chưa phân loại' }}</v-chip>
+                  </div>
+                </div>
               </div>
             </template>
+
             <template #[`item.status`]="{ item }">
-              <v-chip :color="getStatusColor(item.status)" size="small" class="font-weight-bold px-3">
+              <v-chip 
+                :color="getStatusColor(item.status)" 
+                size="small" 
+                variant="flat" 
+                class="font-weight-black px-3" 
+                rounded="lg"
+              >
+                <v-icon start size="14" class="mr-1">{{ getStatusIcon(item.status) }}</v-icon>
                 {{ translateStatus(item.status) }}
               </v-chip>
             </template>
-            <template #[`item.priority`]="{ item }">
-              <v-tooltip bottom>
-                <template #activator="{ props }">
-                    <v-icon v-bind="props" :color="getPriorityColor(item.priority)">
-                        {{ getPriorityIcon(item.priority) }}
-                    </v-icon>
-                </template>
-                <span>Mức độ quan trọng: {{ translatePriority(item.priority) }}</span>
-              </v-tooltip>
+
+            <template #[`item.location`]="{ item }">
+              <div class="d-flex flex-column">
+                <div class="text-body-2 font-weight-bold d-flex align-center mb-1">
+                  <v-icon size="14" color="grey" class="mr-1">mdi-map-marker</v-icon>
+                  {{ item.location || 'Chưa xác định' }}
+                </div>
+                <div class="d-flex align-center">
+                  <v-chip size="x-small" :color="getPriorityColor(item.priority)" variant="tonal" class="px-2 font-weight-bold">
+                    <v-icon start size="10" class="mr-1">{{ getPriorityIcon(item.priority) }}</v-icon>
+                    {{ translatePriority(item.priority) }}
+                  </v-chip>
+                </div>
+              </div>
             </template>
+
+            <template #[`item.financials`]="{ item }">
+              <div class="d-flex flex-column text-right">
+                <div class="text-caption text-grey-darken-1 mb-1">
+                  Giá mua: <span class="font-weight-bold">{{ formatPrice(item.purchasePrice) }}</span>
+                </div>
+                <div class="text-body-2 font-weight-black text-success">
+                  Hiện tại: {{ formatPrice(item.currentBookValue) }}
+                </div>
+                <div class="text-caption text-error font-italic" v-if="item.monthlyDepreciationAmount > 0">
+                  -{{ formatPrice(item.monthlyDepreciationAmount) }}/tháng
+                </div>
+              </div>
+            </template>
+
             <template #[`item.nextMaintenanceDate`]="{ item }">
-              <div class="d-flex align-center">
-                <v-icon size="14" class="mr-1" :color="isOverdue(item.nextMaintenanceDate) ? 'error' : 'grey'">mdi-clock-outline</v-icon>
-                <span :class="isOverdue(item.nextMaintenanceDate) ? 'text-error font-weight-bold' : ''">
-                    {{ formatDate(item.nextMaintenanceDate) }}
-                </span>
+              <div class="d-flex flex-column align-end">
+                <v-chip 
+                  :color="isOverdue(item.nextMaintenanceDate) ? 'error' : 'grey-lighten-4'"
+                  :variant="isOverdue(item.nextMaintenanceDate) ? 'flat' : 'flat'"
+                  size="small"
+                  class="font-weight-bold mb-1"
+                  :class="isOverdue(item.nextMaintenanceDate) ? '' : 'text-grey-darken-2'"
+                >
+                  <v-icon start size="14" class="mr-1">mdi-calendar-clock</v-icon>
+                  {{ formatDate(item.nextMaintenanceDate) }}
+                </v-chip>
+                <div class="text-caption text-grey" v-if="item.lastMaintenanceDate">
+                  Lần cuối: {{ formatDate(item.lastMaintenanceDate) }}
+                </div>
               </div>
             </template>
             <template #[`item.actions`]="{ item }">
@@ -360,15 +408,25 @@
                 />
               </v-col>
                <v-col cols="4">
-                 <v-text-field v-model.number="equipment.maintenanceIntervalDays" label="Chu kỳ bảo trì (ngày)" type="number" variant="outlined" />
+                 <v-text-field 
+                    v-model.number="equipment.maintenanceIntervalDays" 
+                    label="Chu kỳ bảo trì (ngày)" 
+                    type="number" 
+                    variant="outlined" 
+                    :hint="`Hạn kế tiếp dự kiến: ${calculatedNextMT}`"
+                    persistent-hint
+                 />
               </v-col>
             </v-row>
 
             <v-row>
-              <v-col cols="6">
+              <v-col cols="4">
                 <v-text-field v-model="equipment.purchaseDate" label="Ngày mua" type="date" variant="outlined" />
               </v-col>
-              <v-col cols="6">
+              <v-col cols="4">
+                 <v-text-field v-model.number="equipment.weight" label="Trọng lượng" type="number" variant="outlined" suffix="kg" />
+              </v-col>
+              <v-col cols="4">
                 <v-text-field v-model.number="equipment.purchasePrice" label="Giá trị mua" type="number" variant="outlined" prefix="₫" />
               </v-col>
             </v-row>
@@ -416,8 +474,59 @@
               </v-col>
             </v-row>
             <v-text-field v-model="maintenance.technician" label="Nhân viên/Đơn vị kỹ thuật" variant="outlined" placeholder="VD: Thợ bảo trì Matrix" />
-            <v-text-field v-model.number="maintenance.cost" label="Chi phí thực tế" type="number" variant="outlined" prefix="₫" />
-            <v-textarea v-model="maintenance.description" label="Nội dung/Linh kiện thay thế" variant="outlined" rows="3" />
+            <v-text-field v-model.number="maintenance.cost" label="Chi phí thuê ngoài" type="number" variant="outlined" prefix="₫" />
+            <v-textarea v-model="maintenance.description" label="Nội dung bảo trì" variant="outlined" rows="2" />
+
+            <v-divider class="my-4"></v-divider>
+            <div class="d-flex align-center justify-space-between mb-2">
+              <div class="text-subtitle-2 font-weight-bold">Vật tư sử dụng từ kho (📦 Linked Kho)</div>
+              <v-btn size="small" color="primary" variant="text" prepend-icon="mdi-plus" @click="addMaterial">Thêm vật tư</v-btn>
+            </div>
+
+            <div v-for="(mat, index) in maintenance.usedMaterials" :key="index" class="mb-4 pa-3 bg-grey-lighten-5 rounded-lg border border-dashed">
+               <v-row density="compact">
+                 <v-col cols="12" md="5">
+                    <v-select
+                      v-model="mat.productId"
+                      :items="supplies"
+                      item-title="name"
+                      item-value="id"
+                      label="Mặt hàng"
+                      variant="underlined"
+                      density="compact"
+                      hide-details
+                    ></v-select>
+                 </v-col>
+                 <v-col cols="6" md="3">
+                    <v-text-field
+                      v-model.number="mat.quantity"
+                      label="SL"
+                      type="number"
+                      variant="underlined"
+                      density="compact"
+                      hide-details
+                    ></v-text-field>
+                 </v-col>
+                 <v-col cols="6" md="3">
+                    <v-select
+                      v-model="mat.warehouseId"
+                      :items="warehouses"
+                      item-title="name"
+                      item-value="id"
+                      label="Kho xuất"
+                      variant="underlined"
+                      density="compact"
+                      hide-details
+                    ></v-select>
+                 </v-col>
+                 <v-col cols="12" md="1" class="d-flex align-center justify-end">
+                    <v-btn icon="mdi-close" size="x-small" color="error" variant="text" @click="removeMaterial(index)"></v-btn>
+                 </v-col>
+               </v-row>
+            </div>
+            <div v-if="!maintenance.usedMaterials.length" class="text-center text-caption text-grey py-2 border-dashed rounded-lg mb-4">
+               Không sử dụng vật tư trong kho
+            </div>
           </v-form>
         </v-card-text>
         <v-card-actions class="pa-6 pt-0">
@@ -509,6 +618,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useEquipmentStore } from '@/stores/equipment'
 import equipmentCategoryService from '@/services/equipmentCategoryService'
 import providerService from '@/services/providerService'
+import { productService } from '@/services/productService'
+import { inventoryService } from '@/services/inventoryService'
 import { formatCurrency } from '@/utils/helpers'
 
 const equipmentStore = useEquipmentStore()
@@ -540,7 +651,10 @@ const equipment = ref({
   serialNumber: '', categoryId: null, providerId: null, priority: 2, maintenanceIntervalDays: 90
 })
 
-const maintenance = ref({ equipmentId: null, date: '', cost: 0, description: '', technician: '', status: 3 })
+const maintenance = ref({ equipmentId: null, date: '', cost: 0, description: '', technician: '', status: 3, usedMaterials: [] })
+const supplies = ref([])
+const warehouses = ref([])
+
 const incident = ref({ 
     equipmentId: null, 
     date: new Date().toISOString().substring(0, 16), 
@@ -554,12 +668,12 @@ const providerHistory = ref([])
 const historyLoading = ref(false)
 
 const headers = [
-  { title: 'Tên thiết bị', key: 'name' },
-  { title: 'Trạng thái', key: 'status' },
-  { title: 'Ưu tiên', key: 'priority', align: 'center' },
-  { title: 'Vị trí', key: 'location' },
-  { title: 'Hạn bảo trì', key: 'nextMaintenanceDate' },
-  { title: '', key: 'actions', sortable: false, align: 'end' }
+  { title: 'Thông tin tài sản', key: 'name', width: '30%' },
+  { title: 'Trạng thái', key: 'status', width: '12%' },
+  { title: 'Vị trí & Ưu tiên', key: 'location', width: '18%' },
+  { title: 'Giá trị & Khấu hao', key: 'financials', align: 'end', width: '20%' },
+  { title: 'Hạn bảo trì', key: 'nextMaintenanceDate', align: 'end', width: '12%' },
+  { title: '', key: 'actions', sortable: false, align: 'end', width: '8%' }
 ]
 
 const planHeaders = [
@@ -598,6 +712,24 @@ const priorityOptions = [
   { title: 'Nghiêm trọng', value: 4 }
 ]
 
+const addMaterial = () => {
+    maintenance.value.usedMaterials.push({ productId: null, quantity: 1, warehouseId: warehouses.value[0]?.id })
+}
+
+const removeMaterial = (index) => {
+    maintenance.value.usedMaterials.splice(index, 1)
+}
+
+const fetchSupplies = async () => {
+    const res = await productService.getAll({ type: 2 }) // Type 2 = Supply
+    if (res.success) supplies.value = res.data
+}
+
+const fetchWarehouses = async () => {
+    const res = await inventoryService.getWarehouses()
+    if (res.success) warehouses.value = res.data
+}
+
 const loadEquipments = () => {
     const params = {
         categoryId: filters.value.categoryId || undefined,
@@ -624,14 +756,14 @@ const openEquipmentDialog = (item = null) => {
     isEdit.value = false
     equipment.value = { 
       name: '', equipmentCode: '', status: 1, purchaseDate: new Date().toISOString().split('T')[0], 
-      purchasePrice: 0, location: '', description: '',
+      purchasePrice: 0, location: '', description: '', weight: 0,
       serialNumber: '', categoryId: null, providerId: null, priority: 2, maintenanceIntervalDays: 90
     }
   }
   eqDialog.value = true
 }
 
-const openMaintenanceDialog = (item) => {
+const openMaintenanceDialog = async (item) => {
   selectedEq.value = item
   maintenance.value = { 
     equipmentId: item.id, 
@@ -639,8 +771,13 @@ const openMaintenanceDialog = (item) => {
     cost: 0, 
     description: '',
     technician: '',
-    status: 3
+    status: 3,
+    usedMaterials: []
   }
+  
+  if (!supplies.value.length) await fetchSupplies()
+  if (!warehouses.value.length) await fetchWarehouses()
+  
   mtDialog.value = true
 }
 
@@ -727,13 +864,32 @@ const confirmLiquidate = async (item) => {
 }
 
 // Helpers
+const calculatedNextMT = computed(() => {
+    if (!equipment.value.maintenanceIntervalDays || equipment.value.maintenanceIntervalDays <= 0) return '---'
+    const baseDate = equipment.value.lastMaintenanceDate ? new Date(equipment.value.lastMaintenanceDate) : new Date(equipment.value.purchaseDate)
+    if (isNaN(baseDate.getTime())) return '---'
+    
+    const next = new Date(baseDate)
+    next.setDate(next.getDate() + equipment.value.maintenanceIntervalDays)
+    return next.toLocaleDateString('vi-VN')
+})
+
 const formatPrice = (p) => formatCurrency(p)
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '---'
-const translateStatus = (s) => ({ 1: 'Hoạt động', 2: 'Sự cố', 3: 'Bảo trì', 4: 'Thanh lý' }[s] || 'Khác')
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : 'Chưa định'
+const translateStatus = (s) => ({ 1: 'Hoạt động', 2: 'Gặp sự cố', 3: 'Bảo trì', 4: 'Thanh lý' }[s] || 'Khác')
 const getStatusColor = (s) => ({ 1: 'success', 2: 'error', 3: 'orange', 4: 'grey' }[s] || 'grey')
-const translatePriority = (p) => ({ 1: 'Thấp', 2: 'Bình thường', 3: 'Cao', 4: 'Khẩn cấp' }[p])
-const getPriorityColor = (p) => ({ 1: 'grey-lighten-1', 2: 'info', 3: 'warning', 4: 'error' }[p] || 'grey')
-const getPriorityIcon = (p) => ({ 1: 'mdi-chevron-down', 2: 'mdi-chevron-right', 3: 'mdi-chevron-up', 4: 'mdi-alert-decagram' }[p])
+const getStatusIcon = (s) => ({ 1: 'mdi-check-circle', 2: 'mdi-alert-octagon', 3: 'mdi-wrench-clock', 4: 'mdi-close-circle' }[s] || 'mdi-help-circle')
+const translatePriority = (p) => ({ 1: 'Thấp', 2: 'Bình thường', 3: 'Ưu tiên', 4: 'Khẩn cấp' }[p])
+const getPriorityColor = (p) => ({ 1: 'grey', 2: 'info', 3: 'warning', 4: 'error' }[p] || 'grey')
+const getPriorityIcon = (p) => ({ 1: 'mdi-arrow-down-thin', 2: 'mdi-minus-thick', 3: 'mdi-arrow-up-thick', 4: 'mdi-fire' }[p])
+const getCategoryIcon = (category) => {
+    const c = category?.toLowerCase() || ''
+    if (c.includes('cardio') || c.includes('chạy')) return 'mdi-heart-pulse'
+    if (c.includes('tạ') || c.includes('weight')) return 'mdi-dumbbell'
+    if (c.includes('phụ kiện')) return 'mdi-timer-sand'
+    if (c.includes('điện')) return 'mdi-flash'
+    return 'mdi-tools'
+}
 const isOverdue = (date) => date && new Date(date) < new Date()
 const showSnack = (msg, color = 'success') => snack.value = { show: true, message: msg, color }
 
@@ -798,7 +954,8 @@ onMounted(() => {
   letter-spacing: 0.5px;
 }
 
-.font-heading {
-    font-family: 'Outfit', sans-serif !important;
+.v-card[hover]:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 </style>

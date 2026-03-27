@@ -22,8 +22,7 @@
         <v-card elevation="3" class="rounded-xl overflow-hidden">
           <v-tabs v-model="activeMethod" bg-color="primary" grow>
             <v-tab value="code"><v-icon start>mdi-keyboard</v-icon> Mã/SĐT</v-tab>
-            <v-tab value="qr"><v-icon start>mdi-qrcode-scan</v-icon> QR Code</v-tab>
-            <v-tab value="face"><v-icon start>mdi-face-recognition</v-icon> Face ID</v-tab>
+            <v-tab value="face"><v-icon start>mdi-face-recognition</v-icon> FaceID</v-tab>
           </v-tabs>
 
           <v-card-text class="pa-6">
@@ -47,47 +46,45 @@
                 />
               </v-window-item>
 
-              <v-window-item value="qr">
-                <div class="text-center py-6 border-dashed rounded-lg mb-4 bg-grey-lighten-4 position-relative overflow-hidden">
-                  <video ref="qrVideo" class="camera-feed" autoplay muted playsinline v-show="isCameraActive"></video>
-                  <div v-if="!isCameraActive" class="py-10">
-                    <v-icon size="64" color="primary" class="mb-2">mdi-camera-iris</v-icon>
-                    <p class="text-body-2 mb-2">Đang đợi quét mã QR từ App Mobile...</p>
-                  </div>
-                  <v-text-field
-                    v-model="qrInput"
-                    placeholder="Focus và quét để Auto Check-in..."
-                    variant="underlined"
-                    density="compact"
-                    hide-details
-                    autofocus
-                    @keyup.enter="handleQRScan"
-                  />
-                  <v-btn v-if="!isCameraActive" color="primary" size="small" variant="text" @click="startCamera('qr')">Bật Camera</v-btn>
-                </div>
-              </v-window-item>
-
               <v-window-item value="face">
-                <div class="text-center py-4 bg-black rounded-lg mb-4 position-relative overflow-hidden" style="min-height: 280px;">
-                  <video ref="faceVideo" class="camera-feed" autoplay muted playsinline v-show="isCameraActive"></video>
-                  <v-icon v-if="!isCameraActive" size="80" color="success" class="mt-8">mdi-face-recognition-outline</v-icon>
-                  <div v-else class="face-scan-line"></div>
-                  
-                  <!-- Overlay thông báo lỗi hoặc hướng dẫn -->
-                  <div v-if="faceScanError" class="position-absolute top-0 left-0 w-100 pa-2 bg-error text-caption text-white" style="z-index: 15;">
-                    <v-icon size="14">mdi-alert-circle</v-icon> {{ faceScanError }}
-                  </div>
-
-                  <div class="position-absolute bottom-0 left-0 w-100 pa-4" style="background: rgba(0,0,0,0.5); z-index: 10;">
-                    <p class="text-white text-caption mb-2">{{ isCameraActive ? 'Hệ thống đang ở chế độ Tự động nhận diện' : 'Camera đang tắt' }}</p>
-                    <div class="d-flex justify-center gap-2">
-                      <v-btn v-if="!isCameraActive" color="success" size="small" prepend-icon="mdi-camera" @click="startCamera('face')">Bật Camera</v-btn>
-                      <v-btn v-else color="error" size="small" prepend-icon="mdi-camera-off" @click="stopCamera">Tắt Camera</v-btn>
-                      <v-btn v-if="isCameraActive" color="primary" size="small" prepend-icon="mdi-face-recognition" :loading="scanningFace" @click="scanFace">Nhận diện Face ID</v-btn>
+                <div class="text-center py-4 px-2">
+                  <div class="scanner-container mb-4 mx-auto elevation-5 overflow-hidden position-relative rounded-xl border-lg border-primary">
+                    <video ref="faceVideo" class="face-video" autoplay muted playsinline></video>
+                    <div v-if="isScanning" class="face-scan-line"></div>
+                    <div v-if="!isCameraActive" class="camera-placeholder d-flex flex-column align-center justify-center">
+                       <v-icon size="64" color="primary-lighten-2">mdi-camera-account</v-icon>
+                       <p class="text-caption mt-2">Camera đang tắt</p>
                     </div>
+                    <div class="scanner-corners"></div>
                   </div>
+                  
+                  <div class="d-flex justify-center gap-2 mb-2">
+                    <v-btn
+                      v-if="!isCameraActive"
+                      color="primary"
+                      prepend-icon="mdi-camera"
+                      variant="flat"
+                      rounded="pill"
+                      @click="startCamera('face')"
+                    >
+                      Bật Camera FaceID
+                    </v-btn>
+                    <v-btn
+                      v-else
+                      color="error"
+                      prepend-icon="mdi-camera-off"
+                      variant="tonal"
+                      rounded="pill"
+                      @click="stopCamera"
+                    >
+                      Tắt Camera
+                    </v-btn>
+                  </div>
+                  <p class="text-caption text-grey">Để mặt vào khung hình để hệ thống tự động nhận diện</p>
                 </div>
               </v-window-item>
+
+
             </v-window>
 
             <div class="d-flex align-center justify-space-between mb-4">
@@ -217,7 +214,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useCheckinStore } from '@/stores/checkin'
 import { checkinService } from '@/services/checkinService'
 import { memberService } from '@/services/memberService' 
@@ -234,9 +231,7 @@ const qrInput = ref('')
 // Camera State
 const isCameraActive = ref(false)
 const faceVideo = ref(null)
-const qrVideo = ref(null)
-const scanningFace = ref(false)
-const faceScanError = ref('')
+const isScanning = ref(false)
 let stream = null
 
 const memberCode = ref('')
@@ -274,8 +269,7 @@ const startCamera = async (type) => {
     
     if (type === 'face' && faceVideo.value) {
       faceVideo.value.srcObject = stream
-    } else if (type === 'qr' && qrVideo.value) {
-      qrVideo.value.srcObject = stream
+      startFaceScanning()
     }
   } catch (err) {
     console.error('Lỗi truy cập camera:', err)
@@ -283,75 +277,27 @@ const startCamera = async (type) => {
   }
 }
 
+
+
+watch([activeMethod, isCameraActive], ([method, camera]) => {
+})
+
 const stopCamera = () => {
   if (stream) {
     stream.getTracks().forEach(track => track.stop())
     stream = null
   }
   isCameraActive.value = false
-  scanningFace.value = false
+  isScanning.value = false
 }
 
-const scanFace = async () => {
-  if (!isCameraActive.value) return
-  scanningFace.value = true
-  faceScanError.value = ''
-  
-  // Logic mô phỏng nhận diện:
-  // 1. Ưu tiên hội viên đang được chọn trong dropdown (nếu họ đã đăng ký Face) để dễ test
-  // 2. Nếu không chọn ai, tìm hội viên ngẫu nhiên đã đăng ký Face
-  let targetMember = null
-  if (memberCode.value) {
-    targetMember = memberList.value.find(m => 
-      (m.memberCode === memberCode.value || m.MemberCode === memberCode.value) 
-      && (m.faceEncoding || m.FaceEncoding)
-    )
-  }
 
-  const registeredMember = targetMember || memberList.value.find(m => m.faceEncoding || m.FaceEncoding)
-  
-  if (!registeredMember) {
-    setTimeout(() => {
-      scanningFace.value = false
-      faceScanError.value = 'Hệ thống không tìm thấy bất kỳ hội viên nào có dữ liệu khuôn mặt. Vui lòng đăng ký trước.'
-      showSnack('Lỗi: Chưa có dữ liệu Face ID!', 'error')
-    }, 1000)
-    return
-  }
-
-  // Lấy encoding của hội viên đó
-  const faceEncoding = registeredMember.faceEncoding || registeredMember.FaceEncoding
-  
-  setTimeout(async () => {
-    try {
-      // Gọi API luôn ở chế độ AUTO (Không cần button check-in nữa)
-      const result = await checkinService.faceCheckIn(faceEncoding)
-      const data = result.data || result.Data
-      const isSuccess = result.success || result.Success
-      
-      if (isSuccess) {
-        showSnack(`✅ Tự động Check-in: ${data.memberName || 'Hội viên'}`, 'success')
-        memberCode.value = '' // Clear input
-        checkinStore.fetchToday()
-      } else {
-        const msg = result.message || 'Không nhận diện được khuôn mặt'
-        faceScanError.value = msg
-        showSnack(msg, 'error')
-      }
-    } catch (error) {
-      console.error('Face Checkin error:', error)
-      faceScanError.value = 'Lỗi kết nối máy chủ khi quét mặt'
-      showSnack("Lỗi nhận diện khuôn mặt", 'error')
-    } finally {
-      scanningFace.value = false
-    }
-  }, 1200)
-}
 
 const loadMembers = async () => {
   isLoadingMembers.value = true
   try {
-    const res = await memberService.getAll()
+    // Tăng pageSize lên 1000 để FaceID có thể tìm thấy nhiều hội viên hơn (mô phỏng)
+    const res = await memberService.getAll(1, 1000)
     let rawData = []
     if (Array.isArray(res)) rawData = res
     else if (res && (res.data || res.Data)) {
@@ -398,31 +344,40 @@ const onMemberSelected = async (val) => {
   }
 }
 
-const handleQRScan = async () => {
-  if (!qrInput.value) return;
-  const code = qrInput.value.trim();
-  qrInput.value = ''; // Reset ngay sau quét
-  
-  if (isAutoMode.value) {
-    try {
-      const result = await checkinService.qrCheckIn(code)
-      if (result.success || result.Success) {
-        showSnack('✅ Check-in QR thành công!', 'success')
-        checkinStore.fetchToday()
-      } else {
-        showSnack(result.message || 'Lỗi quét QR', 'error')
-      }
-    } catch (error) {
-      showSnack("Lỗi kết nối máy chủ", 'error')
-    }
-  } else {
-    await handleAutoFlow(code);
-  }
+let scanTimeout = null;
+const startFaceScanning = () => {
+    isScanning.value = true;
+    // Mô phỏng quá trình nhận diện AI sau 2s
+    scanTimeout = setTimeout(async () => {
+        if (!isCameraActive.value || activeMethod.value !== 'face') return;
+        
+        // Tìm một hội viên bất kỳ đã đăng ký FaceID để "giả lập" nhận diện thành công
+        const registeredMember = memberList.value.find(m => m.faceEncoding || m.FaceEncoding);
+        
+        // Gửi encoding (nếu tìm thấy thì dùng của hội viên đó, không thì dùng mẫu mặc định)
+        const mockEncoding = registeredMember 
+          ? (registeredMember.faceEncoding || registeredMember.FaceEncoding) 
+          : "MOCK_FACE_VECTOR_GYM2024001";
+
+        try {
+            const result = await checkinService.faceCheckIn(mockEncoding);
+            if (result.success || result.Success) {
+                const data = result.data || result.Data;
+                showSnack(`✅ Nhận diện: ${data.memberName || 'Thành công'}`, 'success');
+                checkinStore.fetchToday();
+                // Cooldown 5s để tránh check-in liên tục 1 người
+                setTimeout(() => { if(isCameraActive.value) startFaceScanning(); }, 5000);
+            } else {
+                showSnack(result.message || 'FaceID không khớp hội viên', 'error');
+                setTimeout(() => { if(isCameraActive.value) startFaceScanning(); }, 3000);
+            }
+        } catch (error) {
+            showSnack('Lỗi API nhận diện', 'error');
+        }
+    }, 2000);
 }
 
-const simulateFaceScan = async () => {
-    await scanFace();
-}
+
 
 const handleAutoFlow = async (code) => {
   memberCode.value = code;
@@ -500,22 +455,55 @@ const handleCheckOut = async (id) => {
   cursor: pointer;
 }
 
+.scanner-container {
+  width: 280px;
+  height: 280px;
+  background: #000;
+  position: relative;
+}
+
+.face-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror effect */
+}
+
+.camera-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #1a1a1a;
+  color: white;
+}
+
+.scanner-corners {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
 .face-scan-line {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 2px;
-  background: #4caf50;
-  box-shadow: 0 0 15px #4caf50;
+  background: #1976D2;
+  box-shadow: 0 0 15px #1976D2;
   animation: scan 3s infinite linear;
   z-index: 5;
 }
 
-.camera-feed {
-  width: 100%;
-  height: 280px;
-  object-fit: cover;
-  background: #000;
+@keyframes scan {
+  0% { top: 10%; }
+  50% { top: 90%; }
+  100% { top: 10% ; }
 }
 </style>

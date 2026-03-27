@@ -18,7 +18,7 @@
             <div class="text-h6 font-weight-bold">{{ authStore.userName }}</div>
             <div class="text-caption text-grey mt-1">{{ authStore.userEmail }}</div>
             <v-chip class="mt-2" :color="roleColor" size="small" variant="tonal">
-              {{ authStore.userRole }}
+              {{ authStore.translatedRole }}
             </v-chip>
           </v-card-text>
         </v-card>
@@ -58,8 +58,7 @@
                 />
               </v-col>
               <v-col cols="12" sm="6">
-                <v-text-field
-                  :model-value="authStore.userRole"
+                  :model-value="authStore.translatedRole"
                   label="Vai trò"
                   prepend-inner-icon="mdi-shield-account"
                   variant="outlined"

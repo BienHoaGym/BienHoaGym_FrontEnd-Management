@@ -22,20 +22,10 @@ export const checkinService = {
     }
   },
 
-  async qrCheckIn(qrCode) {
-    try {
-      const response = await api.post('/CheckIns/qr', qrCode, {
-        headers: { 'Content-Type': 'application/json' }
-      })
-      return response.data
-    } catch (error) {
-      return error.response?.data || { success: false, message: 'Lỗi quét QR' }
-    }
-  },
 
   async faceCheckIn(faceEncoding) {
     try {
-      const response = await api.post('/CheckIns/face', { faceEncoding })
+      const response = await api.post('/CheckIns/face', { faceEncoding: faceEncoding })
       return response.data
     } catch (error) {
       return error.response?.data || { success: false, message: 'Lỗi nhận diện khuôn mặt' }

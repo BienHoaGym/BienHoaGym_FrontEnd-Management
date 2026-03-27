@@ -10,7 +10,12 @@ export const useTrainerStore = defineStore('trainer', {
     error: null
   }),
   getters: {
-    activeTrainers: (s) => s.trainers.filter(t => t.isActive && !t.isDeleted)
+    // Sửa lỗi: Hỗ trợ cả CamelCase và PascalCase từ Backend
+    activeTrainers: (s) => (s.trainers || []).filter(t => {
+      const active = t.isActive !== undefined ? t.isActive : (t.IsActive !== undefined ? t.IsActive : true)
+      const deleted = t.isDeleted !== undefined ? t.isDeleted : (t.IsDeleted !== undefined ? t.IsDeleted : false)
+      return active && !deleted
+    })
   },
   actions: {
     async fetchById(id) {
@@ -24,11 +29,22 @@ export const useTrainerStore = defineStore('trainer', {
     },
     async fetchAll() {
       this.loading = true
+      this.error = null
       try {
         const r = await trainerService.getAll()
         if (r.success || r.Success) this.trainers = r.data || r.Data || []
       } catch (e) {
-        this.error = e.response?.data?.message || 'Load failed'
+        if (e.response?.status === 403) {
+          // Fallback cho Trainer/Staff không có quyền xem lương/full info: Lấy danh sách active công khai
+          try {
+            const r = await trainerService.getActive()
+            if (r.success || r.Success) this.trainers = r.data || r.Data || []
+          } catch (err) {
+            this.error = err.response?.data?.message || 'Load active trainers failed'
+          }
+        } else {
+          this.error = e.response?.data?.message || 'Load failed'
+        }
       } finally { this.loading = false }
     },
     async create(data) {
@@ -88,6 +104,15 @@ export const useTrainerStore = defineStore('trainer', {
       } catch (e) {
         return { success: false, message: e.response?.data?.message || 'Unassign failed' }
       } finally { this.saving = false }
+    },
+    async fetchMySchedule() {
+      this.loading = true
+      try {
+        const r = await trainerService.getMySchedule()
+        return r
+      } catch (e) {
+        return { success: false, message: e.response?.data?.message || 'Load schedule failed' }
+      } finally { this.loading = false }
     }
   }
 })

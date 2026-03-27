@@ -18,6 +18,17 @@ export const useAuthStore = defineStore('auth', {
     userName: (state) => state.user?.fullName,
     userEmail: (state) => state.user?.email,
     userId: (state) => state.user?.id,
+    translatedRole: (state) => {
+      const role = state.user?.role
+      const map = {
+        'Admin': 'Quản trị viên',
+        'Manager': 'Quản lý',
+        'Receptionist': 'Lễ tân',
+        'Trainer': 'Huấn luyện viên',
+        'Accountant': 'Kế toán'
+      }
+      return map[role] || role
+    },
 
     // --- KIỂM TRA ROLE CHÍNH XÁC ---
     isAdmin: (state) => state.user?.role === 'Admin',
@@ -38,6 +49,22 @@ export const useAuthStore = defineStore('auth', {
           return roles.includes(state.user.role)
         }
         return state.user.role === roles
+      }
+    },
+    
+    // --- KIỂM TRA QUYỀN RBAC (DÙNG PERMISSIONS) ---
+    hasPermission: (state) => {
+      return (permission) => {
+        if (!state.user) return false
+        
+        // Admin/Manager mặc định có quyền cao nhất
+        if (state.user.role === 'Admin' || state.user.role === 'Manager') return true
+        
+        // Kiểm tra trong danh sách permissions
+        const perms = state.user.permissions || []
+        if (perms.includes('*')) return true
+        
+        return perms.includes(permission)
       }
     }
   },

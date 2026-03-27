@@ -50,7 +50,8 @@ api.interceptors.response.use(
 
     // Xử lý lỗi 403 Forbidden (Không có quyền truy cập)
     if (error.response?.status === 403) {
-      router.push('/unauthorized') // Đảm bảo bạn có route này
+      console.warn('Forbidden access (403):', error.config.url)
+      // Không tự động redirect để Component/Store có thể xử lý fallback nếu cần
     }
 
     // Xử lý lỗi 500 Server Error

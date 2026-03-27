@@ -43,7 +43,7 @@
           <div class="d-flex gap-2 mt-4 mt-sm-0">
             <v-chip :color="statusColor(member.status)" variant="flat" size="large" class="font-weight-bold px-4">
               <v-icon start>mdi-circle-medium</v-icon>
-              {{ member.status }}
+              {{ translateStatus(member.status) }}
             </v-chip>
             
             <v-chip v-if="member.gender" color="blue-grey" variant="tonal" size="large">
@@ -58,9 +58,6 @@
             </v-btn>
             <v-btn :color="member.faceEncoding ? 'success' : 'grey-darken-1'" variant="tonal" prepend-icon="mdi-face-recognition" @click="openFaceRegistration" class="text-capitalize">
               {{ member.faceEncoding ? 'Cập nhật Face ID' : 'Đăng ký Face ID' }}
-            </v-btn>
-            <v-btn v-if="!member.qrCode" color="secondary" variant="tonal" prepend-icon="mdi-qrcode" @click="generateQR" class="text-capitalize">
-              Cấp QR Code
             </v-btn>
             <v-btn color="success" variant="outlined" prepend-icon="mdi-cash-plus" to="/billing" class="text-capitalize">
               Thanh toán
@@ -149,7 +146,10 @@
               <v-window-item value="subs">
                 <div class="d-flex justify-space-between align-center mb-4">
                   <h3 class="text-h6 font-weight-bold">Lịch sử đăng ký</h3>
-                  <v-btn color="primary" prepend-icon="mdi-plus" size="small" @click="openRenew(null)">Đăng ký gói mới</v-btn>
+                  <v-btn v-if="!activeSubscription" color="primary" prepend-icon="mdi-plus" size="small" @click="openRenew(null)">Đăng ký gói mới</v-btn>
+                  <v-chip v-else color="success" variant="tonal" size="small">
+                    <v-icon start>mdi-check-circle</v-icon> Đã có gói tập Active
+                  </v-chip>
                 </div>
                 <v-data-table
                   :headers="subHeaders"
@@ -172,7 +172,7 @@
 
                   <template #item.status="{ item }">
                     <v-chip :color="statusColor(item.status)" size="small" variant="flat" class="font-weight-bold">
-                      {{ item.status }}
+                      {{ translateStatus(item.status) }}
                     </v-chip>
                   </template>
                   <template #item.startDate="{ item }">
@@ -421,7 +421,7 @@ const closeFaceRegistration = () => {
 const registerFace = async () => {
   capturing.value = true
   // Mã hóa ổn định dựa trên MemberCode để phục vụ Simulation Check-in
-  const mockEncoding = `face_encoded_${member.value.memberCode}`
+  const mockEncoding = `MOCK_FACE_VECTOR_${member.value.memberCode}`
   
   try {
     const res = await memberService.update(member.value.id || member.value.Id, {
@@ -443,26 +443,6 @@ const registerFace = async () => {
   }
 }
 
-const generateQR = async () => {
-  if (!confirm('Tạo mã QR riêng cho hội viên này?')) return
-  const newQR = `GYMQR_${member.value.memberCode}_${Math.random().toString(36).substr(2, 5).toUpperCase()}`
-  
-  try {
-    const res = await memberService.update(member.value.id || member.value.Id, {
-      ...member.value,
-      qrCode: newQR
-    })
-    
-    if (res.success || res.Success) {
-      member.value.qrCode = newQR
-      alert('✅ Đã cấp QR Code thành công!')
-    } else {
-      alert(res.message || 'Lỗi cấp QR Code')
-    }
-  } catch (error) {
-    alert('Lỗi kết nối máy chủ')
-  }
-}
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth' 
@@ -516,6 +496,19 @@ const checkInHeaders = [
   { title: 'Gói sử dụng', key: 'packageName' },
   { title: 'Thao tác', key: 'actions', align: 'end', sortable: false }, 
 ]
+
+const translateStatus = (status) => {
+  const map = {
+    'Active': 'Đang hoạt động',
+    'Expired': 'Hết hạn',
+    'Cancelled': 'Đã hủy',
+    'Suspended': 'Tạm dừng',
+    'Pending': 'Chờ xử lý',
+    'Inactive': 'Ngừng tập',
+    'Prospective': 'Tiềm năng'
+  }
+  return map[status] || status
+}
 
 const statusColor = (status) => {
   if (status === 'Active') return 'success'
@@ -638,7 +631,8 @@ const confirmRenew = async () => {
       alert(res.message || res.Message || 'Thao tác thành công!')
       loadSubscriptions()
     } else {
-      alert(res.message || res.Message || 'Thao tác thất bại')
+      // Hiển thị trực tiếp lỗi nghiệp vụ từ backend
+      alert(res.message || res.Message || 'Thao tác không thành công. Vui lòng kiểm tra lại trạng thái hội viên.')
     }
   } catch (e) {
     console.error('Renew error details:', e)

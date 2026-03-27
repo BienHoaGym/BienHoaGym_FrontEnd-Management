@@ -2,11 +2,11 @@
   <div>
     <div class="d-flex align-center justify-space-between mb-6">
       <div>
-        <h1 class="text-h4 font-weight-bold">Packages</h1>
-        <p class="text-subtitle-1 text-grey mt-1">Manage membership packages</p>
+        <h1 class="text-h4 font-weight-bold">Gói tập</h1>
+        <p class="text-subtitle-1 text-grey mt-1">Quản lý các gói đăng ký hội viên</p>
       </div>
-      <v-btn color="primary" size="large" prepend-icon="mdi-plus" @click="openCreate">
-        Add Package
+      <v-btn v-if="authStore.hasPermission('package.create')" color="primary" size="large" prepend-icon="mdi-plus" @click="openCreate">
+        Thêm gói mới
       </v-btn>
     </div>
 
@@ -17,7 +17,10 @@
             <div class="d-flex justify-space-between align-start">
               <div>
                 <v-chip size="x-small" class="mb-2" :color="pkg.isActive ? 'success' : 'error'">
-                  {{ pkg.isActive ? 'Active' : 'Inactive' }}
+                  {{ pkg.isActive ? 'Đang bán' : 'Ngừng bán' }}
+                </v-chip>
+                <v-chip v-if="pkg.hasPT" size="x-small" class="ml-2 mb-2" color="primary" variant="flat">
+                  <v-icon start size="12">mdi-account-star</v-icon> Có PT
                 </v-chip>
                 <div class="text-h6 font-weight-bold text-white">{{ pkg.name || pkg.packageName }}</div>
               </div>
@@ -32,10 +35,11 @@
                   />
                 </template>
                 <v-list density="compact">
-                  <v-list-item prepend-icon="mdi-pencil" title="Edit" @click="openEdit(pkg)" />
+                  <v-list-item v-if="authStore.hasPermission('package.update')" prepend-icon="mdi-pencil" title="Chỉnh sửa" @click="openEdit(pkg)" />
                   <v-list-item
+                    v-if="authStore.hasPermission('package.delete')"
                     prepend-icon="mdi-delete"
-                    title="Delete"
+                    title="Xóa"
                     base-color="error"
                     @click="confirmDelete(pkg)"
                   />
@@ -54,7 +58,7 @@
             >
               {{ formatCurrency(pkg.price) }}
             </div>
-            <div class="text-caption text-grey mb-4">per {{ pkg.durationInDays || pkg.durationDays }} days</div>
+            <div class="text-caption text-grey mb-4">Mỗi {{ pkg.durationInDays || pkg.durationDays }} ngày</div>
 
             <v-list density="compact" class="pa-0">
               <v-list-item density="compact" class="px-0">
@@ -62,7 +66,7 @@
                   <v-icon color="success" size="18">mdi-check-circle</v-icon>
                 </template>
                 <v-list-item-title class="text-body-2">
-                  {{ pkg.durationInDays || pkg.durationDays }} days access
+                  Thời hạn: {{ pkg.durationInDays || pkg.durationDays }} ngày
                 </v-list-item-title>
               </v-list-item>
               <v-list-item density="compact" class="px-0">
@@ -70,7 +74,7 @@
                   <v-icon color="success" size="18">mdi-check-circle</v-icon>
                 </template>
                 <v-list-item-title class="text-body-2">
-                  {{ pkg.sessionLimit ? `${pkg.sessionLimit} sessions` : 'Unlimited sessions' }}
+                  {{ pkg.sessionLimit ? `${pkg.sessionLimit} buổi tập` : 'Số buổi không giới hạn' }}
                 </v-list-item-title>
               </v-list-item>
             </v-list>
@@ -85,8 +89,8 @@
       <v-col v-if="!packageStore.packages.length" cols="12">
         <div class="text-center py-16">
           <v-icon size="80" color="grey-lighten-2">mdi-package-variant-closed</v-icon>
-          <p class="text-h6 text-grey mt-4">No packages yet</p>
-          <v-btn color="primary" class="mt-4" @click="openCreate">Create First Package</v-btn>
+          <p class="text-h6 text-grey mt-4">Chưa có gói tập nào</p>
+          <v-btn color="primary" class="mt-4" @click="openCreate">Tạo gói tập đầu tiên</v-btn>
         </div>
       </v-col>
     </v-row>
@@ -101,7 +105,7 @@
       <v-card>
         <v-card-title class="d-flex align-center pa-6 bg-primary text-white">
           <v-icon class="mr-3">{{ isEdit ? 'mdi-pencil' : 'mdi-plus' }}</v-icon>
-          {{ isEdit ? 'Edit Package' : 'Create Package' }}
+          {{ isEdit ? 'Chỉnh sửa gói tập' : 'Thêm gói tập mới' }}
           <v-spacer />
           <v-btn icon="mdi-close" variant="text" color="white" @click="formDialog = false" />
         </v-card-title>
@@ -112,7 +116,7 @@
               <v-col cols="12">
                 <v-text-field
                   v-model="form.name"
-                  label="Package Name *"
+                  label="Tên gói tập *"
                   variant="outlined"
                   density="comfortable"
                   :rules="[r.required]"
@@ -122,7 +126,7 @@
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model.number="form.price"
-                  label="Price (VND) *"
+                  label="Giá bán (VNĐ) *"
                   variant="outlined"
                   density="comfortable"
                   type="number"
@@ -133,7 +137,7 @@
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model.number="form.discountPrice"
-                  label="Discount Price (VND)"
+                  label="Giá khuyến mãi (VNĐ)"
                   variant="outlined"
                   density="comfortable"
                   type="number"
@@ -143,7 +147,7 @@
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model.number="form.durationInDays"
-                  label="Duration (days) *"
+                  label="Thời hạn (ngày) *"
                   variant="outlined"
                   density="comfortable"
                   type="number"
@@ -154,7 +158,7 @@
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model.number="form.sessionLimit"
-                  label="Session Limit (blank = unlimited)"
+                  label="Giới hạn buổi tập (Để trống = Không giới hạn)"
                   variant="outlined"
                   density="comfortable"
                   type="number"
@@ -162,9 +166,19 @@
                 />
               </v-col>
               <v-col cols="12">
+                <v-switch
+                  v-model="form.hasPT"
+                  label="Gói tập có kèm PT (Personal Trainer)"
+                  color="primary"
+                  inset
+                  :disabled="saving"
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12">
                 <v-textarea
                   v-model="form.description"
-                  label="Description"
+                  label="Mô tả"
                   variant="outlined"
                   density="comfortable"
                   rows="2"
@@ -174,7 +188,7 @@
               <v-col v-if="isEdit" cols="12">
                 <v-switch
                   v-model="form.isActive"
-                  label="Active"
+                  label="Đang cho phép bán"
                   color="success"
                   :disabled="saving"
                   inset
@@ -187,9 +201,9 @@
         <v-divider />
         <v-card-actions class="pa-4">
           <v-spacer />
-          <v-btn variant="outlined" :disabled="saving" @click="formDialog = false">Cancel</v-btn>
+          <v-btn variant="outlined" :disabled="saving" @click="formDialog = false">Hủy</v-btn>
           <v-btn color="primary" :loading="saving" @click="handleSave">
-            {{ isEdit ? 'Save Changes' : 'Create Package' }}
+            {{ isEdit ? 'Lưu thay đổi' : 'Tạo gói tập' }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -197,9 +211,9 @@
 
     <confirm-dialog
       v-model="deleteDialog"
-      title="Delete Package"
-      :message="`Delete '${selected?.name}'? This cannot be undone.`"
-      confirm-text="Delete"
+      title="Xóa gói tập"
+      :message="`Bạn có chắc chắn muốn xóa gói '${selected?.name}'? Hệ thống sẽ không thể khôi phục dữ liệu này.`"
+      confirm-text="Xóa"
       type="error"
       :loading="deleting"
       @confirm="handleDelete"
@@ -214,12 +228,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { usePackageStore } from '@/stores/package'
+import { useAuthStore } from '@/stores/auth'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { formatCurrency } from '@/utils/helpers'
 
 // ĐÃ XÓA: import { packageService } ... (Không cần thiết vì dùng qua Store)
 
 const packageStore = usePackageStore()
+const authStore = useAuthStore()
 
 const formDialog = ref(false)
 const deleteDialog = ref(false)
@@ -239,13 +255,14 @@ const defaultForm = {
   durationInMonths: 1, // Thường backend cần cả tháng
   sessionLimit: null,
   description: '',
+  hasPT: false,
   isActive: true,
 }
 const form = ref({ ...defaultForm })
 
 const r = {
-  required: (v) => (v !== null && v !== '' && v !== undefined) || 'Required',
-  positive: (v) => !v || Number(v) > 0 || 'Must be positive',
+  required: (v) => (v !== null && v !== '' && v !== undefined) || 'Bắt buộc nhập',
+  positive: (v) => !v || Number(v) > 0 || 'Phải là số dương',
 }
 
 const getPkgColor = (price) => {
@@ -276,6 +293,7 @@ const openEdit = (pkg) => {
     durationInMonths: pkg.durationInMonths || 1,
     sessionLimit: pkg.sessionLimit || null,
     description: pkg.description || '',
+    hasPT: pkg.hasPT || false,
     isActive: pkg.isActive,
   }
   formDialog.value = true
@@ -303,7 +321,7 @@ const handleSave = async () => {
 
   if (result.success) {
     formDialog.value = false
-    showSnack(isEdit.value ? 'Package updated!' : 'Package created!')
+    showSnack(isEdit.value ? 'Cập nhật thành công!' : 'Tạo gói tập thành công!')
   } else {
     showSnack(result.message, 'error')
   }
@@ -316,7 +334,7 @@ const handleDelete = async () => {
   
   if (result.success) {
     deleteDialog.value = false
-    showSnack('Package deleted!')
+    showSnack('Đã xóa gói tập thành công!')
   } else {
     showSnack(result.message, 'error')
   }

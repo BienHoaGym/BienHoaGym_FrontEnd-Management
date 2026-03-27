@@ -4,11 +4,17 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
+import { vi } from 'vuetify/locale'
 import '@mdi/font/css/materialdesignicons.css'
 
 const vuetify = createVuetify({
   components,
   directives,
+  locale: {
+    locale: 'vi',
+    fallback: 'vi',
+    messages: { vi },
+  },
   icons: {
     defaultSet: 'mdi',
     aliases,
@@ -32,6 +38,9 @@ const vuetify = createVuetify({
           background: '#f5f5f5',
           surface: '#ffffff',
         },
+        variables: {
+          'font-family': '"Be Vietnam Pro", sans-serif',
+        }
       },
       dark: {
         dark: true,
@@ -46,6 +55,9 @@ const vuetify = createVuetify({
           background: '#171717',
           surface: '#000000',
         },
+        variables: {
+          'font-family': '"Be Vietnam Pro", sans-serif',
+        }
       },
     },
   },

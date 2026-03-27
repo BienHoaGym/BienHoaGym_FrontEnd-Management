@@ -14,7 +14,7 @@
           <div class="logo-container">
             <v-icon size="38" color="white">mdi-dumbbell</v-icon>
           </div>
-          <h1 class="brand-title">Gym<br/>Management</h1>
+          <h1 class="brand-title">Quản lý<br/>Phòng Gym</h1>
           <p class="brand-subtitle">Hệ thống quản lý phòng gym thông minh & toàn diện.</p>
         </div>
         
@@ -113,7 +113,7 @@
           </v-form>
 
           <div class="form-footer animate-fade-in-stagger-5">
-            <p>© {{ new Date().getFullYear() }} Gym Management. All rights reserved.</p>
+            <p>© {{ new Date().getFullYear() }} Quản lý Phòng Gym. Bảo lưu mọi quyền.</p>
           </div>
         </div>
       </div>
@@ -166,7 +166,25 @@ const handleLogin = async () => {
         localStorage.removeItem('remember_password')
       }
       
-      router.push('/dashboard')
+      // Redirect based on permissions
+      if (authStore.hasPermission('report.read')) {
+        router.push('/dashboard')
+      } else {
+        // Fallback to find first allowed route if doesn't have dashboard access
+        const routes = router.getRoutes()
+        const mainRoute = routes.find(r => r.path === '/')
+        const children = mainRoute?.children || []
+        
+        let target = '/profile'
+        for (const child of children) {
+          if (child.path === '' || child.path === 'dashboard') continue
+          if (!child.meta?.permission || authStore.hasPermission(child.meta.permission)) {
+            target = `/${child.path}`
+            break
+          }
+        }
+        router.push(target)
+      }
     } else {
       errorMessage.value = result.message || 'Tên đăng nhập hoặc mật khẩu không đúng.'
     }
@@ -179,11 +197,9 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 /* --- 1. Global & Background --- */
 .login-wrapper {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Be Vietnam Pro', sans-serif;
   min-height: 100vh;
   display: flex;
   align-items: center;

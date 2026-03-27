@@ -21,6 +21,7 @@
             clearable
             @update:model-value="onFilterChanged"
           ></v-text-field>
+
           <v-select
             v-model="selectedSupplyType"
             :items="['Tất cả loại', ...supplyTypes]"
@@ -65,6 +66,7 @@
 
         <template v-slot:item.contact="{ item }">
           <div class="d-flex flex-column">
+            <span v-if="item.contactPerson" class="text-body-2 font-weight-black text-primary"><v-icon size="16" class="mr-1">mdi-account-tie</v-icon>{{ item.contactPerson }}</span>
             <span class="text-body-2 font-weight-bold"><v-icon size="16" class="mr-1">mdi-phone</v-icon>{{ item.phoneNumber || 'N/A' }}</span>
             <span class="text-caption text-grey"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ item.email || 'N/A' }}</span>
           </div>
@@ -95,8 +97,8 @@
             size="small"
             color="info"
             class="mr-1"
-            title="Lịch sử giao dịch"
-            @click="viewHistory(item)"
+            title="Xem hồ sơ & Danh mục hàng"
+            @click="viewDetails(item)"
           ></v-btn>
           <v-btn
             icon="mdi-pencil"
@@ -143,6 +145,15 @@
               </v-col>
               <v-col cols="12" sm="4">
                 <v-text-field
+                  v-model="editedItem.contactPerson"
+                  label="Người liên hệ"
+                  variant="outlined"
+                  density="comfortable"
+                  placeholder="VD: Nguyễn Văn A"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" sm="4">
+                <v-text-field
                   v-model="editedItem.code"
                   label="Mã định danh (Tự sinh nếu trống)"
                   variant="outlined"
@@ -184,7 +195,7 @@
               </v-col>
               <v-col cols="12" sm="4">
                 <v-text-field
-                  v-model="editedItem.vatCode"
+                  v-model="editedItem.taxCode"
                   label="Mã số thuế"
                   variant="outlined"
                   density="comfortable"
@@ -252,31 +263,86 @@
       </v-card>
     </v-dialog>
 
-    <!-- History Dialog -->
-    <v-dialog v-model="historyDialog" max-width="900px">
-      <v-card rounded="lg">
-        <v-toolbar color="info" density="comfortable" flat>
-          <v-toolbar-title class="font-weight-bold px-4">Lịch sử giao dịch: {{ selectedProvider?.name }}</v-toolbar-title>
+    <!-- Details Dialog (Portolio & History) -->
+    <v-dialog v-model="detailsDialog" max-width="1000px" scrollable>
+      <v-card rounded="xl" class="overflow-hidden">
+        <v-toolbar color="grey-darken-4" flat>
+          <v-avatar size="36" color="primary" variant="tonal" class="ml-4 mr-2">
+            <v-icon size="20">mdi-domain</v-icon>
+          </v-avatar>
+          <v-toolbar-title class="font-weight-black text-body-1">Hồ sơ đối tác: {{ selectedProvider?.name }}</v-toolbar-title>
           <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="text" @click="historyDialog = false"></v-btn>
+          <v-btn icon="mdi-close" variant="text" @click="detailsDialog = false" class="mr-2"></v-btn>
         </v-toolbar>
-        <v-card-text class="pa-4">
-          <v-data-table
-            :headers="historyHeaders"
-            :items="transactionHistory"
-            :loading="historyLoading"
-            hover
-          >
-            <template v-slot:item.date="{ item }">
-              {{ new Date(item.date).toLocaleDateString() }}
-            </template>
-            <template v-slot:item.totalAmount="{ item }">
-              {{ formatCurrency(item.totalAmount) }}
-            </template>
-            <template v-slot:item.status="{ item }">
-              <v-chip size="small" :color="item.status === 'Completed' ? 'success' : 'warning'">{{ item.status }}</v-chip>
-            </template>
-          </v-data-table>
+
+        <v-tabs v-model="detailsTab" custom-class="bg-grey-darken-4 text-white" grow color="primary">
+          <v-tab value="history"><v-icon start>mdi-history</v-icon> Lịch sử giao dịch</v-tab>
+          <v-tab value="products"><v-icon start>mdi-basket-outline</v-icon> Sản phẩm ({{ suppliedProducts.length }})</v-tab>
+          <v-tab value="equipments"><v-icon start>mdi-dumbbell</v-icon> Thiết bị ({{ suppliedEquipments.length }})</v-tab>
+        </v-tabs>
+
+        <v-divider />
+
+        <v-card-text class="pa-0 bg-grey-lighten-4" style="height: 600px">
+          <v-window v-model="detailsTab">
+            <!-- Window Item: History -->
+            <v-window-item value="history">
+              <v-data-table
+                :headers="historyHeaders"
+                :items="transactionHistory"
+                :loading="detailsLoading"
+                hover
+                class="bg-transparent"
+              >
+                <template #[`item.date`]="{ item }">
+                  <div class="font-weight-medium">{{ new Date(item.date).toLocaleDateString('vi-VN') }}</div>
+                </template>
+                <template #[`item.totalAmount`]="{ item }">
+                  <div class="font-weight-black text-primary">{{ formatCurrency(item.totalAmount) }}</div>
+                </template>
+                <template #[`item.status`]="{ item }">
+                   <v-chip size="x-small" color="success" class="font-weight-bold" variant="flat">Hoàn tất</v-chip>
+                </template>
+              </v-data-table>
+            </v-window-item>
+
+            <!-- Window Item: Products -->
+            <v-window-item value="products">
+              <v-data-table
+                :headers="[
+                  { title: 'Tên sản phẩm', key: 'name' },
+                  { title: 'SKU', key: 'sku' },
+                  { title: 'Đơn vị', key: 'unit' },
+                  { title: 'Giá niêm yết', key: 'price', align: 'end' }
+                ]"
+                :items="suppliedProducts"
+                :loading="detailsLoading"
+                hover
+                class="bg-transparent"
+              >
+                <template #[`item.price`]="{ item }">
+                  <span class="font-weight-bold">{{ formatCurrency(item.price) }}</span>
+                </template>
+              </v-data-table>
+            </v-window-item>
+
+            <!-- Window Item: Equipments -->
+            <v-window-item value="equipments">
+              <v-data-table
+                :headers="[
+                  { title: 'Tên thiết bị', key: 'name' },
+                  { title: 'Mã', key: 'equipmentCode' },
+                  { title: 'Loại', key: 'categoryName' },
+                  { title: 'Vị trí', key: 'location' }
+                ]"
+                :items="suppliedEquipments"
+                :loading="detailsLoading"
+                hover
+                class="bg-transparent"
+              >
+              </v-data-table>
+            </v-window-item>
+          </v-window>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -298,6 +364,7 @@ const headers = [
   { title: 'Thao tác', key: 'actions', sortable: false, align: 'end' }
 ]
 
+ 
 const historyHeaders = [
   { title: 'Mã GD', key: 'transactionCode' },
   { title: 'Loại', key: 'type' },
@@ -318,10 +385,13 @@ const form = ref(null)
 const search = ref('')
 const selectedSupplyType = ref('Tất cả loại')
 
-const historyDialog = ref(false)
-const historyLoading = ref(false)
+const detailsDialog = ref(false)
+const detailsTab = ref('history')
+const detailsLoading = ref(false)
 const selectedProvider = ref(null)
 const transactionHistory = ref([])
+const suppliedProducts = ref([])
+const suppliedEquipments = ref([])
 
 const editedIndex = ref(-1)
 const editedItem = ref({
@@ -330,7 +400,8 @@ const editedItem = ref({
   address: '',
   phoneNumber: '',
   email: '',
-  vatCode: '',
+  taxCode: '',
+  contactPerson: '',
   bankAccountNumber: '',
   bankName: '',
   supplyType: '',
@@ -344,7 +415,8 @@ const defaultItem = {
   address: '',
   phoneNumber: '',
   email: '',
-  vatCode: '',
+  taxCode: '',
+  contactPerson: '',
   bankAccountNumber: '',
   bankName: '',
   supplyType: '',
@@ -410,23 +482,35 @@ const save = async () => {
     closeDialog()
   } catch (error) {
     console.error('Error saving provider:', error)
-    alert(error.response?.data?.message || 'Có lỗi xảy ra')
+    const message = error.response?.data?.message || error.response?.data?.Message || 'Có lỗi xảy ra'
+    const errors = error.response?.data?.errors?.join('\n') || ''
+    alert(errors ? `${message}:\n${errors}` : message)
   } finally {
     saving.value = false
   }
 }
 
-const viewHistory = async (item) => {
+const viewDetails = async (item) => {
   selectedProvider.value = item
-  historyDialog.value = true
-  historyLoading.value = true
+  detailsDialog.value = true
+  detailsTab.value = 'history'
+  detailsLoading.value = true
+  
   try {
-    const res = await providerService.getHistory(item.id)
-    transactionHistory.value = res.data || []
+    // Gọi song song 3 API để lấy hồ sơ đầy đủ
+    const [historyRes, productsRes, equipmentsRes] = await Promise.all([
+      providerService.getHistory(item.id),
+      providerService.getProducts(item.id),
+      providerService.getEquipments(item.id)
+    ])
+    
+    transactionHistory.value = historyRes.data || []
+    suppliedProducts.value = productsRes.data || []
+    suppliedEquipments.value = equipmentsRes.data || []
   } catch (error) {
-    console.error('Error fetching history:', error)
+    console.error('Error fetching provider portfolio:', error)
   } finally {
-    historyLoading.value = false
+    detailsLoading.value = false
   }
 }
 

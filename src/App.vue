@@ -6,7 +6,6 @@
 </template>
 
 <script setup>
-// This is the root component
 </script>
 
 <style>

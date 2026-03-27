@@ -5,11 +5,6 @@
         <h1 class="text-h4 font-weight-bold">Bán hàng & Thanh toán</h1>
         <p class="text-subtitle-1 text-grey mt-1">Quản lý doanh thu, in hóa đơn và bán sản phẩm</p>
       </div>
-      <div class="d-flex gap-2">
-        <v-btn color="success" prepend-icon="mdi-plus" @click="productDialog = true">
-          Thêm sản phẩm
-        </v-btn>
-      </div>
     </div>
 
     <v-tabs v-model="activeTab" color="primary" class="mb-6">
@@ -42,7 +37,7 @@
                   <v-chip value="all">Tất cả</v-chip>
                   <v-chip value="Package">Gói tập</v-chip>
                   <v-chip value="Product">Sản phẩm</v-chip>
-                  <v-chip value="PT">PT Session</v-chip>
+                  <v-chip value="PT">Huấn luyện viên (PT)</v-chip>
                 </v-chip-group>
               </v-card-title>
               
@@ -55,6 +50,10 @@
                           <v-chip size="x-small" :color="getTypeColor(item.type)" variant="flat" class="font-weight-bold">
                             {{ translateType(item.type) }}
                           </v-chip>
+                          <v-chip v-if="item.hasPT" size="x-small" color="primary" variant="flat" class="font-weight-bold ml-1">
+                            <v-icon start size="10">mdi-account-star</v-icon> PT
+                          </v-chip>
+                          <v-spacer />
                           <span v-if="item.type === 'Product'" class="text-caption text-grey">Kho: {{ item.stock }}</span>
                         </div>
                         <div class="text-body-1 font-weight-bold mb-1">{{ item.name }}</div>
@@ -114,6 +113,21 @@
                   clearable
                 ></v-autocomplete>
 
+                <!-- High Visibility Warning for Active Sub -->
+                <v-alert
+                  v-if="hasActiveSub"
+                  type="error"
+                  variant="tonal"
+                  class="mb-3 rounded-lg"
+                  density="compact"
+                >
+                  <div class="text-caption font-weight-bold">
+                    <v-icon start size="14">mdi-alert-decagram</v-icon>
+                    Hội viên đã có gói tập đang sử dụng!
+                  </div>
+                  <div class="text-caption">Vui lòng không bán thêm gói mới để tránh bị trùng.</div>
+                </v-alert>
+
                 <!-- Pending Subscriptions section -->
                 <div v-if="selectedMember && pendingSubsForMember.length" class="mb-4">
                   <div class="text-caption font-weight-bold text-warning mb-2 d-flex align-center">
@@ -141,17 +155,19 @@
                 </div>
                 <div class="d-flex justify-space-between mb-4">
                   <span>Giảm giá (%)</span>
-                  <v-text-field
-                    v-model.number="discount"
-                    type="number"
-                    variant="plain"
-                    density="compact"
-                    class="ml-10 text-right font-weight-bold text-error"
-                    hide-details
-                    suffix="%"
-                    min="0"
-                    max="100"
-                  ></v-text-field>
+                    <v-text-field
+                      v-model.number="discount"
+                      type="number"
+                      variant="plain"
+                      density="compact"
+                      class="ml-10 text-right font-weight-bold text-error"
+                      hide-details
+                      suffix="%"
+                      min="0"
+                      :max="authStore.isReceptionist ? 10 : 100"
+                      :persistent-hint="authStore.isReceptionist && discount > 10"
+                      :hint="authStore.isReceptionist && discount > 10 ? 'Vượt quá hạn mức 10% của Lễ tân' : ''"
+                    ></v-text-field>
                 </div>
                 <div class="d-flex justify-space-between text-h6 font-weight-bold mb-4">
                   <span>Thanh toán</span>
@@ -169,7 +185,7 @@
                 <v-btn
                   block color="primary"
                   size="large" class="rounded-lg font-weight-bold"
-                  :disabled="!cart.length"
+                  :disabled="!cart.length || (authStore.isReceptionist && discount > 10)"
                   :loading="billingStore.saving"
                   @click="handleCheckout"
                 >
@@ -210,51 +226,12 @@
       </v-window-item>
     </v-window>
 
-    <!-- Product Creation Dialog -->
-    <v-dialog v-model="productDialog" max-width="500">
-      <v-card class="rounded-xl">
-        <v-card-title class="pa-6 bg-primary text-white font-weight-bold">
-          Thêm Sản phẩm mới
-        </v-card-title>
-        <v-card-text class="pa-6">
-          <v-form ref="productForm">
-            <v-text-field v-model="newProduct.name" label="Tên sản phẩm *" variant="outlined" density="comfortable" :rules="[v => !!v || 'Bắt buộc']" />
-            <v-row>
-              <v-col cols="6">
-                <v-text-field v-model.number="newProduct.price" label="Giá bán *" type="number" variant="outlined" density="comfortable" prefix="₫" />
-              </v-col>
-              <v-col cols="6">
-                <v-text-field v-model.number="newProduct.stockQuantity" label="Số lượng kho" type="number" variant="outlined" density="comfortable" />
-              </v-col>
-            </v-row>
-            <v-text-field v-model="newProduct.category" label="Danh mục (Nước, TPBS...)" variant="outlined" density="comfortable" />
-            <v-select
-              v-model="newProduct.providerId"
-              label="Nhà cung cấp"
-              :items="providers"
-              item-title="name"
-              item-value="id"
-              variant="outlined"
-              density="comfortable"
-              clearable
-            />
-            <v-text-field v-model="newProduct.sku" label="Mã SKU (Tùy chọn)" variant="outlined" density="comfortable" />
-          </v-form>
-        </v-card-text>
-        <v-card-actions class="pa-6 pt-0">
-          <v-spacer />
-          <v-btn variant="text" @click="productDialog = false">Hủy</v-btn>
-          <v-btn color="primary" variant="flat" :loading="billingStore.saving" @click="handleCreateProduct">Lưu sản phẩm</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
     <!-- Invoice Detail Dialog -->
     <v-dialog v-model="invoiceDialog" max-width="600">
       <v-card class="rounded-xl overflow-hidden" id="printable-invoice">
         <v-card-text class="pa-8">
           <div class="text-center mb-6">
-            <div class="text-h4 font-weight-bold primary--text">GYM APP</div>
+            <div class="text-h4 font-weight-bold primary--text">HỆ THỐNG QUẢN LÝ GYM</div>
             <div class="text-caption">Hệ thống Quản lý Gym Chuyên nghiệp</div>
             <v-divider class="my-4" />
             <div class="text-h6 font-weight-bold">HÓA ĐƠN THANH TOÁN</div>
@@ -328,19 +305,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useBillingStore } from '@/stores/billing'
 import { usePackageStore } from '@/stores/package'
 import { useTrainerStore } from '@/stores/trainer'
 import { useMemberStore } from '@/stores/member'
 import { useSubscriptionStore } from '@/stores/subscription'
+import { useAuthStore } from '@/stores/auth'
 import providerService from '@/services/providerService'
+import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 
 const billingStore = useBillingStore()
 const packageStore = usePackageStore()
 const trainerStore = useTrainerStore()
 const memberStore = useMemberStore()
 const subscriptionStore = useSubscriptionStore()
+const authStore = useAuthStore()
+const { handleError } = useApiErrorHandler()
 
 const activeTab = ref('pos')
 const search = ref('')
@@ -349,15 +330,10 @@ const cart = ref([])
 const discount = ref(0)
 const selectedMember = ref(null)
 const paymentMethod = ref("1")
-const productDialog = ref(false)
 const invoiceDialog = ref(false)
 const selectedInvoice = ref(null)
 const snack = ref({ show: false, message: '', color: 'success' })
 const providers = ref([])
-
-const newProduct = ref({
-  name: '', price: 0, stockQuantity: 0, category: 'Sản phẩm', sku: '', providerId: null
-})
 
 const invoiceHeaders = [
   { title: 'Số HĐ', key: 'invoiceNumber' },
@@ -368,36 +344,47 @@ const invoiceHeaders = [
   { title: 'Thao tác', key: 'actions', sortable: false }
 ]
 
+const hasActiveSub = computed(() => {
+  if (!selectedMember.value) return false
+  return subscriptionStore.subscriptions.some(s => {
+    const sMemberId = s.memberId || s.MemberId
+    const sStatus = s.status || s.Status
+    return sMemberId === selectedMember.value && (sStatus === 'Active' || sStatus === 'Pending')
+  })
+})
+
 const catalog = computed(() => {
   const items = []
   
-  // Packages
+  // 1. Gói tập (Packages) - Lấy từ store chuyên dụng để có đầy đủ metadata (hasPT, sessionLimit...)
   packageStore.packages.forEach(p => {
+    const pkgId = p.id || p.Id
     items.push({ 
-      id: p.id || p.Id, 
+      id: pkgId, 
       type: 'Package', 
-      name: p.name || p.packageName || p.PackageName || 'Gói tập không tên', 
-      price: p.price || p.Price || 0, 
-      stock: '∞' 
+      name: p.name || p.packageName || p.PackageName || 'Gói tập', 
+      // SỬA LỖI: Ưu tiên lấy giá khuyến mãi nếu có
+      price: p.discountPrice || p.price || p.Price || 0,
+      originalPrice: p.price || p.Price || 0,
+      stock: '∞',
+      hasPT: p.hasPT || p.HasPT || false,
+      isActive: p.isActive !== false && p.IsActive !== false
     })
   })
   
-  // Products
-  billingStore.products.forEach(p => {
+  // 2. Sản phẩm (Products) - Chặn lấy trùng các gói tập nếu backend có trả về (để thống nhất logic xử lý)
+  billingStore.products.filter(p => (p.isActive || p.IsActive) && p.type !== 1).forEach(p => {
     items.push({ 
       id: p.id || p.Id, 
       type: 'Product', 
-      name: p.name || p.productName || p.ProductName || 'Sản phẩm không tên', 
+      name: p.name || p.productName || 'Sản phẩm', 
       price: p.price || p.Price || 0, 
-      stock: p.stockQuantity || p.StockQuantity || 0 
+      stock: p.stockQuantity || p.StockQuantity || 0,
+      isActive: true
     })
   })
   
-  // PT Sessions
-  items.push({ id: 'pt-1', type: 'PT', name: 'PT Session 1:1 (Lẻ)', price: 350000, stock: '∞' })
-  items.push({ id: 'pt-10', type: 'PT', name: 'Gói PT 10 Buổi', price: 3000000, stock: '∞' })
-  
-  return items
+  return items.filter(i => i.isActive)
 })
 
 const filteredCatalog = computed(() => {
@@ -405,7 +392,10 @@ const filteredCatalog = computed(() => {
   return catalog.value.filter(item => {
     const itemName = (item.name || '').toLowerCase()
     const matchSearch = itemName.includes(query)
-    const matchType = filterType.value === 'all' || item.type === filterType.value
+    let matchType = filterType.value === 'all' || item.type === filterType.value
+    if (filterType.value === 'PT') {
+      matchType = item.type === 'PT' || (item.type === 'Package' && item.hasPT)
+    }
     return matchSearch && matchType
   })
 })
@@ -426,8 +416,9 @@ const pendingSubsForMember = computed(() => {
   }).map(s => ({
     id: s.id || s.Id,
     packageId: s.packageId || s.PackageId,
-    packageName: s.originalPackageName || s.PackageName || s.packageName || 'Gói tập',
-    price: s.finalPrice || s.PackagePrice || s.packagePrice || 0
+    packageName: s.packageName || s.PackageName || s.originalPackageName || 'Gói tập',
+    // SỬA LỖI: Ưu tiên lấy giá bán thực tế của gói đang chờ (Price/FinalPrice)
+    price: s.price || s.finalPrice || s.Price || s.FinalPrice || s.packagePrice || s.PackagePrice || 0
   }))
 })
 
@@ -450,8 +441,17 @@ const discountAmount = computed(() => (subtotal.value * (discount.value || 0)) /
 const finalAmount = computed(() => Math.max(0, subtotal.value - discountAmount.value))
 
 const addToCart = (item) => {
+  if (item.type === 'Product' && (item.stock === 0 || item.stock === '0')) {
+    showSnack('Sản phẩm đã hết hàng trong kho!', 'error')
+    return
+  }
+  
   const existing = cart.value.find(c => c.id === item.id && c.type === item.type)
   if (existing) {
+    if (item.type === 'Product' && existing.qty >= item.stock) {
+        showSnack(`Số lượng vượt quá tồn kho (${item.stock})`, 'warning')
+        return
+    }
     existing.qty++
   } else {
     cart.value.push({ ...item, qty: 1 })
@@ -460,21 +460,34 @@ const addToCart = (item) => {
 
 const removeFromCart = (index) => cart.value.splice(index, 1)
 const updateQty = (index, delta) => {
-  const item = cart.value[index]
-  item.qty = Math.max(1, item.qty + delta)
+  const itemInCart = cart.value[index]
+  
+  // Find original item in catalog for stock check
+  const original = catalog.value.find(c => c.id === itemInCart.id && c.type === itemInCart.type)
+  
+  if (delta > 0 && original && original.type === 'Product' && itemInCart.qty >= original.stock) {
+    showSnack(`Số lượng vượt quá tồn kho (${original.stock})`, 'warning')
+    return
+  }
+  
+  itemInCart.qty = Math.max(1, itemInCart.qty + delta)
 }
 
 const handleCheckout = async () => {
   if (!cart.value.length) return
   
+  if (!selectedMember.value) {
+    showSnack('Vui lòng chọn khách hàng trước khi thanh toán!', 'warning')
+    return
+  }
+  
   const payload = {
-    memberId: selectedMember.value || null, // Ensure empty string becomes null
+    memberId: selectedMember.value,
     discountAmount: parseFloat((discountAmount.value || 0).toFixed(2)),
     paymentMethod: parseInt(paymentMethod.value || "1"),
     note: 'Bán hàng tại quầy',
     details: cart.value.map(item => ({
       itemType: item.type === 'Subscription' ? 'Package' : item.type,
-      // For subscriptions, referenceId should still be the Package ID
       referenceId: item.type === 'Subscription' ? item.id : (item.type !== 'PT' ? item.id : null),
       itemName: item.name,
       quantity: item.qty || 1,
@@ -490,21 +503,15 @@ const handleCheckout = async () => {
     invoiceDialog.value = true
     cart.value = []
     discount.value = 0
+    selectedMember.value = null
+    
+    // Refresh stock
+    billingStore.fetchProducts()
   } else {
-    // Show detailed error if available
     showSnack(res.message || 'Lỗi thanh toán: Vui lòng thử lại', 'error')
     console.error('Checkout error:', res)
-  }
-}
-
-const handleCreateProduct = async () => {
-  const res = await billingStore.createProduct(newProduct.value)
-  if (res.success) {
-    showSnack('Đã thêm sản phẩm!')
-    productDialog.value = false
-    newProduct.value = { name: '', price: 0, stockQuantity: 0, category: 'Sản phẩm', sku: '', providerId: null }
-  } else {
-    showSnack(res.message, 'error')
+    // Tự động gọi AI phân tích lỗi thanh toán
+    handleError(res, { url: '/api/billing/checkout' })
   }
 }
 
@@ -522,7 +529,7 @@ const formatPrice = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', c
 const formatDate = (d) => d ? new Date(d).toLocaleString('vi-VN') : '---'
 const formatDateShort = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : ''
 const showSnack = (msg, color = 'success') => snack.value = { show: true, message: msg, color }
-const translateType = (t) => ({ 'Package': 'Gói tập', 'Product': 'Sản phẩm', 'PT': 'PT Session' }[t] || t)
+const translateType = (t) => ({ 'Package': 'Gói tập', 'Product': 'Sản phẩm', 'PT': 'Buổi tập PT' }[t] || t)
 const getTypeColor = (t) => ({ 'Package': 'orange', 'Product': 'blue', 'PT': 'purple' }[t] || 'grey')
 const translatePaymentMethod = (m) => ({ 1: 'Tiền mặt', 2: 'Chuyển khoản', 3: 'Ví ĐT', 4: 'Thẻ' }[m] || 'Khác')
 
