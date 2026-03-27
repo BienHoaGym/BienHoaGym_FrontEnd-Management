@@ -89,12 +89,12 @@ export const useAuthStore = defineStore('auth', {
           return { success: true, user: this.user }
         } else {
           this.loading = false
-          this.error = response.message || 'Login failed'
+          this.error = response.message || 'Đăng nhập thất bại'
           return { success: false, message: this.error }
         }
       } catch (error) {
         this.loading = false
-        const errorMessage = error.response?.data?.message || 'Invalid username or password'
+        const errorMessage = error.response?.data?.message || 'Tên đăng nhập hoặc mật khẩu không đúng'
         this.error = errorMessage
         return { success: false, message: errorMessage }
       }

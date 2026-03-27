@@ -63,7 +63,7 @@
 
         <template #item.status="{ item }">
           <v-chip :color="statusColor(item.status)" size="small" variant="tonal">
-            {{ item.status }}
+            {{ translateStatus(item.status) }}
           </v-chip>
         </template>
 
@@ -253,6 +253,14 @@ const pkgOptions = computed(() =>
 )
 
 const statusColor = (status) => ({ Active: 'success', Pending: 'warning', Expired: 'error', Cancelled: 'grey', Suspended: 'deep-purple' })[status] || 'grey'
+
+const translateStatus = (status) => ({
+  Active: 'Đang hoạt động',
+  Pending: 'Chờ thanh toán',
+  Expired: 'Hết hạn',
+  Cancelled: 'Đã hủy',
+  Suspended: 'Tạm dừng',
+})[status] || status
 
 const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0)
 
