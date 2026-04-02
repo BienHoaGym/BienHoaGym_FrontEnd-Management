@@ -6,7 +6,7 @@ const api = axios.create({
   // QUAN TRỌNG: Đặt baseURL là '/api' để khớp với proxy trong vite.config.js
   // Khi bạn gọi api.post('/Auth/login'), nó sẽ thành: http://localhost:5173/api/Auth/login
   // Vite sẽ chuyển tiếp sang: https://localhost:7163/api/Auth/login
-  baseURL: '/api', 
+  baseURL: import.meta.env.VITE_API_URL || '/api', 
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
