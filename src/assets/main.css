@@ -1,11 +1,13 @@
 /* src/assets/main.css */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,100..900;1,100..900&display=swap');
 
 /* Import MDI font */
 @import '@mdi/font/css/materialdesignicons.css';
 
 /* Global resets */
-*, *::before, *::after {
+*:not(.v-icon):not(.v-icon *):not([class*="mdi-"]) {
   box-sizing: border-box;
+  font-family: 'Be Vietnam Pro', sans-serif !important;
 }
 
 html, body {

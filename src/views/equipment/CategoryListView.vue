@@ -5,7 +5,7 @@
       <v-card-text class="d-flex align-center flex-wrap gap-4 py-4">
         <div class="flex-grow-1">
           <h2 class="text-h5 font-weight-bold mb-1">Phân loại thiết bị</h2>
-          <div class="text-subtitle-2 text-grey-lighten-1">Quản lý nhóm máy, chi phí và bảo hành tiêu chuẩn</div>
+          <div class="text-subtitle-2 text-grey-lighten-1">Quản lý các nhóm máy và danh mục tài sản của phòng Gym</div>
         </div>
 
         <div class="d-flex align-center gap-2 flex-grow-1" style="max-width: 600px">
@@ -63,9 +63,7 @@
           </v-chip>
         </template>
 
-        <template v-slot:item.avgMaintenanceCost="{ item }">
-          {{ formatCurrency(item.avgMaintenanceCost) }}
-        </template>
+
 
         <template v-slot:item.actions="{ item }">
           <v-btn
@@ -131,26 +129,7 @@
                   density="comfortable"
                 ></v-select>
               </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field
-                  v-model="editedItem.avgMaintenanceCost"
-                  label="Chi phí bảo trì TB"
-                  type="number"
-                  variant="outlined"
-                  density="comfortable"
-                  suffix="VNĐ"
-                ></v-text-field>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field
-                  v-model="editedItem.standardWarrantyMonths"
-                  label="Bảo hành tiêu chuẩn"
-                  type="number"
-                  variant="outlined"
-                  density="comfortable"
-                  suffix="Tháng"
-                ></v-text-field>
-              </v-col>
+
               <v-col cols="12">
                 <v-textarea
                   v-model="editedItem.description"
@@ -193,15 +172,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import equipmentCategoryService from '@/services/equipmentCategoryService'
-import { formatCurrency } from '@/utils/helpers'
 
 const headers = [
   { title: 'Tên loại', key: 'name', sortable: true },
   { title: 'Mã', key: 'code', sortable: true },
   { title: 'Nhóm', key: 'group', sortable: true },
   { title: 'Số lượng máy', key: 'equipmentCount', align: 'center' },
-  { title: 'CP Bảo trì TB', key: 'avgMaintenanceCost', align: 'end' },
-  { title: 'BH Tiêu chuẩn', key: 'standardWarrantyMonths', align: 'center' },
   { title: 'Thao tác', key: 'actions', sortable: false, align: 'end' }
 ]
 
@@ -222,18 +198,14 @@ const editedItem = ref({
   name: '',
   code: '',
   group: '',
-  description: '',
-  avgMaintenanceCost: 0,
-  standardWarrantyMonths: 12
+  description: ''
 })
 
 const defaultItem = {
   name: '',
   code: '',
   group: '',
-  description: '',
-  avgMaintenanceCost: 0,
-  standardWarrantyMonths: 12
+  description: ''
 }
 
 const fetchCategories = async () => {

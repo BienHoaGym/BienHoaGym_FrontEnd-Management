@@ -56,5 +56,9 @@ export const equipmentService = {
   async getMaintenancePlan() {
     const response = await api.get('/Equipment/maintenance/plan')
     return response.data
+  },
+  async bulkDepreciate(month, year) {
+    const response = await api.post('/Equipment/bulk-depreciation', null, { params: { month, year } })
+    return response.data
   }
 }

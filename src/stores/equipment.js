@@ -76,6 +76,17 @@ export const useEquipmentStore = defineStore('equipment', {
         const r = await equipmentService.getMaintenancePlan()
         return r
       } finally { this.loading = false }
+    },
+    async runBulkDepreciate(month, year) {
+      this.loading = true
+      try {
+        const r = await equipmentService.bulkDepreciate(month, year)
+        if (r.success) {
+          await this.fetchEquipments()
+          await this.fetchDepreciations()
+        }
+        return r
+      } finally { this.loading = false }
     }
   }
 })

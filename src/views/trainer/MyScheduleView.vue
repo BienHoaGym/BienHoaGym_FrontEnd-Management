@@ -2,18 +2,37 @@
   <v-container fluid class="pa-6">
     <!-- Header Section -->
     <v-row class="mb-6 align-center">
-      <v-col cols="12" md="8">
+      <v-col cols="12" md="5">
         <div class="d-flex align-center mb-2">
           <v-avatar color="primary" size="48" class="mr-4 shadow-sm">
             <v-icon color="white">mdi-calendar-account</v-icon>
           </v-avatar>
           <div>
-            <h1 class="text-h4 font-weight-bold">Lịch làm việc của tôi</h1>
+            <h1 class="text-h4 font-weight-bold">{{ pageTitle }}</h1>
             <p class="text-subtitle-1 text-grey">Xem các lớp giảng dạy và học viên PT cá nhân</p>
           </div>
         </div>
       </v-col>
-      <v-col cols="12" md="4" class="text-md-right">
+      
+      <v-col cols="12" md="4" v-if="canViewOtherSchedules">
+        <v-select
+          v-model="selectedTrainerId"
+          :items="trainerStore.activeTrainers"
+          item-title="fullName"
+          item-value="id"
+          label="Chọn huấn luyện viên"
+          variant="outlined"
+          density="compact"
+          hide-details
+          prepend-inner-icon="mdi-account-search"
+          bg-color="white"
+          class="rounded-lg"
+          @update:model-value="onTrainerChange"
+        ></v-select>
+      </v-col>
+      <v-spacer v-else></v-spacer>
+
+      <v-col cols="12" md="3" class="text-md-right">
         <v-chip color="primary" variant="flat" size="large" class="font-weight-bold px-4">
           <v-icon start>mdi-clock-outline</v-icon>
           {{ currentTime }}
@@ -225,10 +244,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useTrainerStore } from '@/stores/trainer'
 import { useClassStore } from '@/stores/class'
+import { useAuthStore } from '@/stores/auth'
 import dayjs from 'dayjs'
 
 const trainerStore = useTrainerStore()
 const classStore = useClassStore()
+const authStore = useAuthStore()
 
 const tab = ref('today')
 const loading = ref(false)
@@ -239,8 +260,17 @@ const enrollments = ref([])
 const markingId = ref(null)
 const snack = ref({ show: false, message: '', color: 'success' })
 
+const selectedTrainerId = ref(null)
+const canViewOtherSchedules = computed(() => authStore.canHandleCheckIn || authStore.isAdmin || authStore.isManager)
+
 const currentTime = ref(dayjs().format('HH:mm - DD/MM/YYYY'))
 const currentDayName = ref(dayjs().format('dddd'))
+
+const pageTitle = computed(() => {
+  if (!selectedTrainerId.value) return 'Lịch làm việc của tôi'
+  const trainer = trainerStore.trainers.find(t => t.id === selectedTrainerId.value)
+  return trainer ? `Lịch của: ${trainer.fullName}` : 'Lịch làm việc'
+})
 
 const weekDays = [
   { title: 'Thứ 2', value: 'Monday' },
@@ -277,19 +307,29 @@ const formatDate = (date) => {
   return dayjs(date).format('DD/MM/YYYY')
 }
 
-const fetchSchedule = async () => {
+const fetchSchedule = async (trainerId = null) => {
   loading.value = true
-  const res = await trainerStore.fetchMySchedule()
+  let res
+  if (trainerId) {
+    res = await trainerStore.fetchTrainerSchedule(trainerId)
+  } else {
+    res = await trainerStore.fetchMySchedule()
+  }
+
   if (res.success) {
     schedule.value = res.data
   } else {
     snack.value = {
       show: true,
-      message: res.message || 'Không thể tải lịch làm việc của bạn',
+      message: res.message || 'Không thể tải lịch làm việc',
       color: 'error'
     }
   }
   loading.value = false
+}
+
+const onTrainerChange = (val) => {
+  fetchSchedule(val)
 }
 
 const openAttendance = async (cls) => {
@@ -312,7 +352,10 @@ const handleMarkAttendance = async (item) => {
   markingId.value = null
 }
 
-onMounted(() => {
+onMounted(async () => {
+  if (canViewOtherSchedules.value) {
+    await trainerStore.fetchAll()
+  }
   fetchSchedule()
   setInterval(() => {
     currentTime.value = dayjs().format('HH:mm - DD/MM/YYYY')

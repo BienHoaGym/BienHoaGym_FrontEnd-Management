@@ -113,6 +113,15 @@ export const useTrainerStore = defineStore('trainer', {
       } catch (e) {
         return { success: false, message: e.response?.data?.message || 'Load schedule failed' }
       } finally { this.loading = false }
+    },
+    async fetchTrainerSchedule(id) {
+      this.loading = true
+      try {
+        const r = await trainerService.getTrainerSchedule(id)
+        return r
+      } catch (e) {
+        return { success: false, message: e.response?.data?.message || 'Load schedule failed' }
+      } finally { this.loading = false }
     }
   }
 })

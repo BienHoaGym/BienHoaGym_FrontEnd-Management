@@ -186,8 +186,11 @@
                 <div class="text-body-2 font-weight-black text-success">
                   Hiện tại: {{ formatPrice(item.currentBookValue) }}
                 </div>
-                <div class="text-caption text-error font-italic" v-if="item.monthlyDepreciationAmount > 0">
-                  -{{ formatPrice(item.monthlyDepreciationAmount) }}/tháng
+                <div class="text-caption text-error font-weight-medium">
+                  M-KH: -{{ formatPrice(item.purchasePrice / 12) }}/tháng
+                </div>
+                <div class="text-caption text-orange-darken-2 font-weight-medium">
+                  Y-KH: -{{ formatPrice(item.purchasePrice / (item.usefulLifeMonths / 12 || 1)) }}/năm
                 </div>
               </div>
             </template>
@@ -311,8 +314,17 @@
             :items="equipmentStore.depreciations"
             hover
           >
-            <template #[`item.value`]="{ item }">
-               <span class="text-orange font-weight-bold">-{{ formatPrice(item.value) }}</span>
+            <template #[`item.date`]="{ item }">
+               <v-chip size="small" variant="text">{{ formatDate(item.date) }}</v-chip>
+            </template>
+            <template #[`item.amount`]="{ item }">
+               <div class="d-flex flex-column text-right" v-if="equipmentStore.equipments.find(e => e.id === item.equipmentId)">
+                  <div class="text-error font-weight-bold">-{{ formatPrice(item.amount) }} (M-KH)</div>
+                  <div class="text-orange-darken-2 text-caption">
+                    Y-KH: -{{ formatPrice(equipmentStore.equipments.find(e => e.id === item.equipmentId)?.purchasePrice / (equipmentStore.equipments.find(e => e.id === item.equipmentId)?.usefulLifeMonths / 12 || 1)) }}
+                  </div>
+               </div>
+               <span v-else class="text-orange font-weight-bold">-{{ formatPrice(item.amount) }}</span>
             </template>
           </v-data-table>
         </v-card>
@@ -420,14 +432,17 @@
             </v-row>
 
             <v-row>
-              <v-col cols="4">
+              <v-col cols="3">
                 <v-text-field v-model="equipment.purchaseDate" label="Ngày mua" type="date" variant="outlined" />
               </v-col>
-              <v-col cols="4">
+              <v-col cols="3">
                  <v-text-field v-model.number="equipment.weight" label="Trọng lượng" type="number" variant="outlined" suffix="kg" />
               </v-col>
-              <v-col cols="4">
+              <v-col cols="3">
                 <v-text-field v-model.number="equipment.purchasePrice" label="Giá trị mua" type="number" variant="outlined" prefix="₫" />
+              </v-col>
+              <v-col cols="3">
+                <v-text-field v-model.number="equipment.usefulLifeYears" label="Niên hạn (năm)" type="number" variant="outlined" suffix="năm" />
               </v-col>
             </v-row>
             
@@ -477,56 +492,6 @@
             <v-text-field v-model.number="maintenance.cost" label="Chi phí thuê ngoài" type="number" variant="outlined" prefix="₫" />
             <v-textarea v-model="maintenance.description" label="Nội dung bảo trì" variant="outlined" rows="2" />
 
-            <v-divider class="my-4"></v-divider>
-            <div class="d-flex align-center justify-space-between mb-2">
-              <div class="text-subtitle-2 font-weight-bold">Vật tư sử dụng từ kho (📦 Linked Kho)</div>
-              <v-btn size="small" color="primary" variant="text" prepend-icon="mdi-plus" @click="addMaterial">Thêm vật tư</v-btn>
-            </div>
-
-            <div v-for="(mat, index) in maintenance.usedMaterials" :key="index" class="mb-4 pa-3 bg-grey-lighten-5 rounded-lg border border-dashed">
-               <v-row density="compact">
-                 <v-col cols="12" md="5">
-                    <v-select
-                      v-model="mat.productId"
-                      :items="supplies"
-                      item-title="name"
-                      item-value="id"
-                      label="Mặt hàng"
-                      variant="underlined"
-                      density="compact"
-                      hide-details
-                    ></v-select>
-                 </v-col>
-                 <v-col cols="6" md="3">
-                    <v-text-field
-                      v-model.number="mat.quantity"
-                      label="SL"
-                      type="number"
-                      variant="underlined"
-                      density="compact"
-                      hide-details
-                    ></v-text-field>
-                 </v-col>
-                 <v-col cols="6" md="3">
-                    <v-select
-                      v-model="mat.warehouseId"
-                      :items="warehouses"
-                      item-title="name"
-                      item-value="id"
-                      label="Kho xuất"
-                      variant="underlined"
-                      density="compact"
-                      hide-details
-                    ></v-select>
-                 </v-col>
-                 <v-col cols="12" md="1" class="d-flex align-center justify-end">
-                    <v-btn icon="mdi-close" size="x-small" color="error" variant="text" @click="removeMaterial(index)"></v-btn>
-                 </v-col>
-               </v-row>
-            </div>
-            <div v-if="!maintenance.usedMaterials.length" class="text-center text-caption text-grey py-2 border-dashed rounded-lg mb-4">
-               Không sử dụng vật tư trong kho
-            </div>
           </v-form>
         </v-card-text>
         <v-card-actions class="pa-6 pt-0">
@@ -616,13 +581,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useEquipmentStore } from '@/stores/equipment'
+import { useAuthStore } from '@/stores/auth'
 import equipmentCategoryService from '@/services/equipmentCategoryService'
 import providerService from '@/services/providerService'
 import { productService } from '@/services/productService'
 import { inventoryService } from '@/services/inventoryService'
 import { formatCurrency } from '@/utils/helpers'
-
 const equipmentStore = useEquipmentStore()
+const authStore = useAuthStore()
 
 const activeTab = ref('list')
 const eqDialog = ref(false)
@@ -648,7 +614,8 @@ const maintenancePlanCount = computed(() => maintenancePlan.value.length)
 
 const equipment = ref({
   name: '', equipmentCode: '', status: 1, purchaseDate: '', purchasePrice: 0, location: '', description: '',
-  serialNumber: '', categoryId: null, providerId: null, priority: 2, maintenanceIntervalDays: 90
+  serialNumber: '', categoryId: null, providerId: null, priority: 2, maintenanceIntervalDays: 90,
+  usefulLifeYears: 1
 })
 
 const maintenance = ref({ equipmentId: null, date: '', cost: 0, description: '', technician: '', status: 3, usedMaterials: [] })
@@ -695,7 +662,7 @@ const maintenanceHeaders = [
 const depreciationHeaders = [
   { title: 'Ngày', key: 'date' },
   { title: 'Thiết bị', key: 'equipmentName' },
-  { title: 'Mức khấu hao', key: 'value' }
+  { title: 'Mức khấu hao', key: 'amount', align: 'end' }
 ]
 
 const statusOptions = [
@@ -713,7 +680,11 @@ const priorityOptions = [
 ]
 
 const addMaterial = () => {
-    maintenance.value.usedMaterials.push({ productId: null, quantity: 1, warehouseId: warehouses.value[0]?.id })
+    maintenance.value.usedMaterials.push({ 
+        productId: null, 
+        quantity: 1, 
+        warehouseId: warehouses.value.find(w => w.name.includes('Tổng'))?.id || warehouses.value[0]?.id 
+    })
 }
 
 const removeMaterial = (index) => {
@@ -721,7 +692,8 @@ const removeMaterial = (index) => {
 }
 
 const fetchSupplies = async () => {
-    const res = await productService.getAll({ type: 2 }) // Type 2 = Supply
+    // Lấy tất cả sản phẩm có trong hệ thống để người dùng thoải mái lựa chọn vật tư thay thế
+    const res = await productService.getAll() 
     if (res.success) supplies.value = res.data
 }
 
@@ -750,7 +722,8 @@ const openEquipmentDialog = (item = null) => {
     equipment.value = { 
         ...item, 
         purchaseDate: item.purchaseDate?.split('T')[0],
-        hasHistory: true // Dùng để disable mã nếu cần
+        usefulLifeYears: Math.round((item.usefulLifeMonths || 12) / 12),
+        hasHistory: true
     }
   } else {
     isEdit.value = false
@@ -783,12 +756,14 @@ const openMaintenanceDialog = async (item) => {
 
 const openIncidentDialog = (item) => {
     selectedEq.value = item
+    // Tự động lấy Tên và Vai trò (đã dịch sang Tiếng Việt) từ hệ thống
+    const reporter = `${authStore.userName || 'Unknown'} - ${authStore.translatedRole || 'Staff'}`
     incident.value = {
         equipmentId: item.id,
         date: new Date().toISOString().substring(0, 16),
         description: '',
         severity: 'Trung bình',
-        reportedBy: '',
+        reportedBy: reporter,
         changeStatusToBroken: true
     }
     incidentDialog.value = true
@@ -809,8 +784,11 @@ const openProviderHistory = async (item) => {
 const handleSaveEquipment = async () => {
   let res;
   // Payload clean up
-  const payload = { ...equipment.value }
-  delete payload.hasHistory 
+  const payload = { ...equipment.value };
+  // Chuyển đổi Năm sang Tháng trước khi gửi về máy chủ để thống nhất tính toán
+  payload.usefulLifeMonths = (equipment.value.usefulLifeYears || 1) * 12;
+  delete payload.usefulLifeYears;
+  delete payload.hasHistory;
 
   if (isEdit.value) res = await equipmentStore.updateEquipment(equipment.value.id, payload)
   else res = await equipmentStore.createEquipment(payload)

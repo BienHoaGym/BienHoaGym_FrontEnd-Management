@@ -41,5 +41,9 @@ export const trainerService = {
   async getMySchedule() {
     const response = await api.get('/Trainers/me/schedule')
     return response.data
+  },
+  async getTrainerSchedule(id) {
+    const response = await api.get(`/Trainers/${id}/schedule`)
+    return response.data
   }
 }
