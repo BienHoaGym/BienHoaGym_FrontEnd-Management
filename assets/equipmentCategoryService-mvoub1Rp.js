@@ -1,0 +1,1 @@
+import{i as e}from"./index-BWcL-OFL.js";var t=`/EquipmentCategories`,n={getAll(n){return e.get(t,{params:n}).then(e=>e.data)},getById(n){return e.get(`${t}/${n}`).then(e=>e.data)},create(n){return e.post(t,n).then(e=>e.data)},update(n,r){return e.put(`${t}/${n}`,r).then(e=>e.data)},delete(n){return e.delete(`${t}/${n}`).then(e=>e.data)}};export{n as t};
