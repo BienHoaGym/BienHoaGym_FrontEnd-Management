@@ -1,1 +1,0 @@
-import{i as e}from"./index-CEmJlEZu.js";var t={async getStats(){return(await e.get(`/Dashboard/stats`)).data},async getCheckinChart(){return(await e.get(`/Dashboard/checkin-chart`)).data},async seedDemoData(){return(await e.post(`/Seed/dashboard-demo`)).data}};export{t};
