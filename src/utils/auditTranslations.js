@@ -21,10 +21,15 @@ export const entityMap = {
   'Subscription': 'Đăng ký',
   'Inventory': 'Kho hàng',
   'Equipment': 'Thiết bị',
-  'StockTransaction': 'Giao dịch kho'
+  'StockTransaction': 'Giao dịch kho',
+  'Class': 'Lớp học & Lịch tập',
+  'Trainer': 'Huấn luyện viên',
+  'Payment': 'Thanh toán',
+  'CheckIn': 'Điểm danh Check-in'
 }
 
 export const fieldMap = {
+  // General
   'Name': 'Tên gọi', 
   'Price': 'Giá bán', 
   'Description': 'Mô tả', 
@@ -38,7 +43,30 @@ export const fieldMap = {
   'JoinedDate': 'Ngày tham gia', 
   'ProviderId': 'ID nhà cung cấp', 
   'Address': 'Địa chỉ', 
-  'Email': 'Hộp thư'
+  'Email': 'Hộp thư',
+  'IsActive': 'Trạng thái hoạt động',
+  'UserName': 'Tên đăng nhập',
+  
+  // Classes
+  'ClassName': 'Tên lớp học',
+  'MaxCapacity': 'Sức chứa tối đa',
+  'ScheduleDay': 'Thứ trong tuần',
+  'StartTime': 'Giờ bắt đầu',
+  'EndTime': 'Giờ kết thúc',
+  'TrainerId': 'Huấn luyện viên phụ trách',
+  'CurrentEnrollment': 'Sĩ số hiện tại',
+
+  // Trainers
+  'Specialization': 'Chuyên môn',
+  'ExperienceYears': 'Số năm kinh nghiệm',
+  'TrainerCode': 'Mã PT',
+  'CommissionRate': 'Tỉ lệ hoa hồng',
+
+  // Members
+  'MemberCode': 'Mã Hội viên',
+  'MemberType': 'Loại khách hàng',
+  'EmergencyContact': 'Liên hệ khẩn cấp',
+  'FaceEncoding': 'Dữ liệu khuôn mặt'
 }
 
 export const permissionMap = {
@@ -49,9 +77,10 @@ export const permissionMap = {
 }
 
 export const translateAction = (action) => {
-  if (action?.includes('Added')) return 'Thêm'
-  if (action?.includes('Modified')) return 'Sửa'
-  if (action?.includes('Deleted')) return 'Xóa'
+  if (!action) return 'Hành động'
+  if (action.includes('Added')) return 'Thêm'
+  if (action.includes('Modified')) return 'Sửa'
+  if (action.includes('Deleted')) return 'Xóa'
   return action
 }
 

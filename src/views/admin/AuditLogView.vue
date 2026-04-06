@@ -118,7 +118,7 @@
         item-value="id"
         hover
         @update:options="handleOptionsUpdate"
-        @click:row="(_, { item }) => openDetails(item.raw)"
+        @click:row="(_, { item }) => openDetails(item)"
       >
         <!-- Time Col -->
         <template #item.timestamp="{ value }">
@@ -293,13 +293,24 @@ const describeChangeSummary = (item) => {
 const isValidUser = (item) => !!(item.userName || item.UserName)
 
 const handleOptionsUpdate = (options) => {
-  pagination.value = options
+  // Merge options thay vì ghi đè hoàn toàn để giữ lại totalItems
+  Object.assign(pagination.value, options)
   loadLogs(search.value, filters)
 }
 
 const openDetails = (item) => {
-  selectedLog.value = item
-  detailDialog.value = true
+  // Tìm kiếm trực tiếp trong mảng logs để đảm bảo dữ liệu nguyên bản và đầy đủ nhất
+  const logId = item.id || item.Id || (item.raw ? (item.raw.id || item.raw.Id) : null)
+  const foundLog = logs.value.find(l => l.id === logId || l.Id === logId)
+  
+  if (foundLog) {
+    selectedLog.value = { ...foundLog } // Clone để tránh side effects
+    detailDialog.value = true
+  } else if (item.raw) {
+    // Fallback nếu không tìm thấy trong mảng hiện tại
+    selectedLog.value = { ...item.raw }
+    detailDialog.value = true
+  }
 }
 
 const exportLogs = () => {

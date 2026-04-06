@@ -46,7 +46,7 @@
                 <v-list density="compact" class="rounded-lg">
                   <v-list-item v-if="authStore.canManageSystem" prepend-icon="mdi-pencil-outline" title="Chỉnh sửa" @click="openEdit(cls)" />
                   <v-list-item prepend-icon="mdi-account-plus-outline" title="Đăng ký HV" @click="openEnroll(cls)" />
-                  <v-list-item prepend-icon="mdi-clipboard-check-outline" title="Điểm danh" @click="openAttendance(cls)" />
+                  <v-list-item prepend-icon="mdi-account-details-outline" title="Chi tiết" @click="openAttendance(cls)" />
                   <v-divider v-if="authStore.canManageSystem" class="my-1" />
                   <v-list-item v-if="authStore.canManageSystem" prepend-icon="mdi-delete-outline" title="Xóa lớp" base-color="error" @click="confirmDelete(cls)" />
                 </v-list>
@@ -89,8 +89,8 @@
             </div>
 
             <div class="mt-5 d-flex gap-2">
-              <v-btn variant="tonal" color="primary" block class="text-capitalize rounded-lg" prepend-icon="mdi-clipboard-check" @click="openAttendance(cls)">
-                Điểm danh lớp
+              <v-btn variant="tonal" color="primary" block class="text-capitalize rounded-lg" prepend-icon="mdi-account-details" @click="openAttendance(cls)">
+                Xem Chi tiết lớp học
               </v-btn>
             </div>
           </v-card-text>
@@ -235,10 +235,13 @@
       <v-card class="rounded-xl overflow-hidden">
         <v-card-title class="pa-0 border-b">
           <div class="pa-6 bg-grey-lighten-4 d-flex align-center">
-            <v-icon color="primary" start size="32">mdi-clipboard-check</v-icon>
+            <v-icon color="primary" start size="32">mdi-account-details</v-icon>
             <div>
-              <div class="text-h5 font-weight-bold">Điểm danh học viên</div>
-              <div class="text-subtitle-2 text-grey">Lớp: {{ selectedClass?.className }} | {{ translateDay(selectedClass?.scheduleDay) }}</div>
+              <div class="text-h5 font-weight-bold">Chi tiết học viên trong lớp</div>
+              <div class="text-subtitle-2 text-grey">
+                Lớp: <span class="text-primary font-weight-bold">{{ selectedClass?.className }}</span> | 
+                <v-icon size="14">mdi-clock-outline</v-icon> {{ formatTime24(selectedClass?.startTime) }} - {{ formatTime24(selectedClass?.endTime) }}
+              </div>
             </div>
             <v-spacer />
             <v-btn icon="mdi-close" variant="text" @click="attendanceDialog = false" />
@@ -518,11 +521,27 @@ const handleSave = async () => {
   const { valid } = await formRef.value.validate()
   if (!valid) return
   saving.value = true
+  
+  // Chuẩn hóa định dạng giờ HH:mm:ss trước khi gửi
+  const formatTime = (time) => {
+    if (!time) return '00:00:00'
+    return time.split(':').length === 2 ? `${time}:00` : time
+  }
+  
+  const payload = {
+    ...form.value,
+    startTime: formatTime(form.value.startTime),
+    endTime: formatTime(form.value.endTime)
+  }
+
   const result = isEdit.value
-    ? await classStore.update(selected.value.id, form.value)
-    : await classStore.create(form.value)
+    ? await classStore.update(selected.value.id, payload)
+    : await classStore.create(payload)
   saving.value = false
-  if (result.success) { formDialog.value = false; showSnack(isEdit.value ? 'Đã cập nhật lớp học!' : 'Đã tạo lớp học thành công!') }
+  if (result.success) { 
+    formDialog.value = false; 
+    showSnack(isEdit.value ? 'Đã cập nhật lớp học!' : 'Đã tạo lớp học thành công!') 
+  }
   else showSnack(result.message, 'error')
 }
 

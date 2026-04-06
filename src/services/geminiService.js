@@ -2,12 +2,11 @@
 // GymAI Core Service - Expert Persona with 18+ years experience
 // Using Gemini AI (API Key required)
 
-const API_KEY = "AIzaSyDbl2l7uVbmCQWFafNMjXHCerZHRWdfpBg" // Gemini AI Key Active ✓
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent"
+const API_KEY = import.meta.env.VITE_LLM_KEY || "";
+const LLM_PROVIDER = import.meta.env.VITE_LLM_PROVIDER || "gemini";
+const LLM_URL = import.meta.env.VITE_LLM_URL || "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent";
+const LLM_MODEL = import.meta.env.VITE_LLM_MODEL || "gemini-pro";
 
-/**
- * Knowledge Base về vận hành Gym (Sử dụng bởi AI khi phân tích & gợi ý)
- */
 export const MODULE_INSIGHTS = {
   '/dashboard': {
     focus: 'Kinh doanh & Vận hành tổng thể',
@@ -52,43 +51,34 @@ export const geminiService = {
    */
   async chat(prompt, context = {}) {
     const { module, role, history = [] } = context
-    
+    const contextPrefix = `[GYMAI PERSONA & CONTEXT]\n${SYSTEM_PROMPT}\n- Module hiện tại: ${module || 'Trang chủ'}\n- Vai trò: ${role || 'Nhân viên'}\n- Thời gian: ${new Date().toLocaleString()}\n-----------------------------------`
+
+    if (LLM_PROVIDER === "ollama") {
+      return await this._chatWithOllama(prompt, contextPrefix, history)
+    } else {
+      return await this._chatWithGemini(prompt, contextPrefix, history)
+    }
+  },
+
+  /**
+   * Chat using Gemini API
+   */
+  async _chatWithGemini(prompt, contextPrefix, history) {
     const messages = []
-    
-    // Inject persona and context into the first message for maximum compatibility
-    const contextPrefix = `[GYMAI PERSONA & CONTEXT]
-${SYSTEM_PROMPT}
-
-- Module hiện tại: ${module || 'Trang chủ'}
-- Vai trò: ${role || 'Nhân viên'}
-- Thời gian: ${new Date().toLocaleString()}
------------------------------------`
-
     if (history.length > 0) {
-      // Add history if exists
       messages.push(...history.map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.content }]
       })))
-      // Append current prompt
-      messages.push({
-        role: 'user',
-        parts: [{ text: prompt }]
-      })
+      messages.push({ role: 'user', parts: [{ text: prompt }] })
     } else {
-      // Single message with full context
-      messages.push({
-        role: 'user',
-        parts: [{ text: `${contextPrefix}\n\n[USER]: ${prompt}` }]
-      })
+      messages.push({ role: 'user', parts: [{ text: `${contextPrefix}\n\n[USER]: ${prompt}` }] })
     }
 
     try {
-      if (API_KEY === "YOUR_GEMINI_API_KEY") {
-        return "⚠️ **GymAI Thông báo**: Bạn chưa cấu hình API Key."
-      }
+      if (!API_KEY) return "⚠️ **GymAI Thông báo**: Bạn chưa cấu hình API Key cho Gemini."
 
-      const response = await fetch(`${GEMINI_URL}?key=${API_KEY}`, {
+      const response = await fetch(`${LLM_URL}?key=${API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: messages })
@@ -106,8 +96,40 @@ ${SYSTEM_PROMPT}
       return data?.candidates?.[0]?.content?.parts?.[0]?.text || 
              "⚠️ GymAI hiện đang bận xử lý dữ liệu. Vui lòng hỏi lại sau giây lát."
     } catch (error) {
-       console.error("[GymAI] API Error:", error)
-       return "⚠️ **Sự cố kết nối**: Tôi không thể liên lạc được với máy chủ trí tuệ nhân tạo. Vui lòng kiểm tra lại API Key hoặc đường truyền mạng."
+      console.error("[GymAI Gemini] Error:", error)
+      return "⚠️ **Sự cố kết nối**: Tôi không thể liên lạc được với máy chủ Gemini. Vui lòng kiểm tra lại API Key hoặc đường truyền mạng."
+    }
+  },
+
+  /**
+   * Chat using local Ollama API
+   */
+  async _chatWithOllama(prompt, contextPrefix, history) {
+    // Combine full prompt for Ollama generate (vô cùng đơn giản)
+    let fullPrompt = `${contextPrefix}\n\nLịch sử chat:\n`
+    history.forEach(m => {
+      fullPrompt += `${m.role === 'user' ? 'Người dùng' : 'GymAI'}: ${m.content}\n`
+    })
+    fullPrompt += `\n[USER]: ${prompt}\nGymAI:`
+
+    try {
+      const response = await fetch(LLM_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: LLM_MODEL,
+          prompt: fullPrompt,
+          stream: false
+        })
+      })
+
+      if (!response.ok) throw new Error(`Ollama Error: ${response.status}`)
+
+      const data = await response.json()
+      return data?.response || "⚠️ GymAI (Local) không phản hồi nội dung."
+    } catch (error) {
+      console.error("[GymAI Ollama] Error:", error)
+      return "⚠️ **Sự cố local**: Không thể kết nối tới mô hình Ollama (localhost:11434). Hãy đảm bảo Ollama đang chạy."
     }
   },
 
