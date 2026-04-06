@@ -19,7 +19,7 @@ export const dashboardService = {
   },
 
   async seedDemoData() {
-    const response = await api.post('/Seed/dashboard-demo')
+    const response = await api.post('/seed/dashboard-demo')
     return response.data
   }
 }
