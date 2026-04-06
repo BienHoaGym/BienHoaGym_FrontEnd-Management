@@ -16,5 +16,10 @@ export const dashboardService = {
   async getCheckinChart() {
     const response = await api.get('/Dashboard/checkin-chart')
     return response.data
+  },
+
+  async seedDemoData() {
+    const response = await api.post('/Seed/dashboard-demo')
+    return response.data
   }
 }

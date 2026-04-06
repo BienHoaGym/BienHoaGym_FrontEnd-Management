@@ -1,293 +1,286 @@
 <template>
-  <div>
-    <div class="d-flex align-center justify-space-between mb-6">
+  <div class="dashboard-wrapper pa-4 pa-md-6">
+    <!-- ── TOP BAR: Control & Quick Actions ── -->
+    <div class="d-flex flex-column flex-md-row align-md-center justify-space-between mb-6 gap-4">
       <div>
-        <h1 class="text-h4 font-weight-bold">
-          Xin chào, {{ authStore?.user?.fullName || 'Hội viên' }}! 👋
+        <h1 class="text-h4 font-weight-black text-primary-gradient glow-text mb-1">
+          Bảng điều khiển <span class="text-grey-darken-1 font-weight-medium text-subtitle-1">v3.1 PRO</span>
         </h1>
-        <p class="text-subtitle-1 text-grey mt-1">
-          {{ formatDate(new Date()) }} — Tổng quan hôm nay
-        </p>
+        <div class="d-flex align-center text-grey-darken-1">
+          <v-chip size="x-small" color="success" variant="flat" class="mr-2 font-weight-black px-2 shadow-sm">REAL-TIME</v-chip>
+          <span class="text-subtitle-2 font-weight-bold ml-1">
+            <v-icon size="14" color="primary" class="mr-1 mt-n1">mdi-timer-sand</v-icon>
+            {{ currentTime }}
+          </span>
+          <v-divider vertical class="mx-3 my-1" />
+          <span class="text-caption font-weight-medium">Cập nhật: {{ lastUpdated }}</span>
+        </div>
       </div>
-      <v-btn
-        variant="outlined"
-        prepend-icon="mdi-refresh"
-        :loading="loading"
-        @click="loadDashboard"
-        color="primary"
-      >
-        Làm mới
-      </v-btn>
+      
+      <div class="d-flex flex-wrap align-center gap-3">
+        <v-btn-group variant="flat" color="primary" rounded="lg" density="comfortable" class="quick-action-group shadow-sm border overflow-hidden">
+          <v-btn prepend-icon="mdi-account-plus" class="px-4 font-weight-black" to="/members?action=add">Hội viên</v-btn>
+          <v-btn prepend-icon="mdi-cash-register" class="px-4 font-weight-black" to="/billing?tab=history">Giao dịch</v-btn>
+          <v-btn icon="mdi-qrcode-scan" variant="tonal" color="white" to="/checkins" class="px-3"></v-btn>
+        </v-btn-group>
+        
+        <v-btn icon="mdi-refresh" variant="elevated" size="small" color="white" class="shadow-sm border" :loading="loading" @click="loadDashboard"></v-btn>
+      </div>
     </div>
 
-    <v-row class="mb-4">
-      <v-col v-for="(kpi, index) in kpiCards" :key="index" cols="12" sm="6" md="3">
-        <v-card hover :to="kpi.to" class="kpi-card h-100" elevation="2">
-          <v-card-text class="pa-5 h-100 d-flex flex-column justify-space-between">
+    <!-- ── AI INSIGHTS BAR (2.6) ── -->
+    <v-expand-transition>
+      <div v-if="stats.insights && stats.insights.length" class="insight-ticker mb-6 py-2 px-4 shadow-sm border rounded-xl d-flex align-center bg-white">
+        <v-chip size="small" color="primary" class="mr-4 font-weight-black" variant="elevated">
+          <v-icon start size="14">mdi-auto-fix</v-icon> ANALYTICS INSIGHTS
+        </v-chip>
+        <div class="ticker-wrapper">
+          <div class="ticker-content">
+            <span v-for="(insight, i) in stats.insights" :key="i" class="insight-item">
+              <v-icon size="14" color="primary" class="mr-1">mdi-brightness-1</v-icon>
+              {{ insight }}
+            </span>
+            <span v-for="(insight, i) in stats.insights" :key="'dup-'+i" class="insight-item">
+              <v-icon size="14" color="primary" class="mr-1">mdi-brightness-1</v-icon>
+              {{ insight }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </v-expand-transition>
+
+    <!-- ── ROW 1: MISSION CRITICAL KPIs (2.1 - 6 CARDS) ── -->
+    <v-row class="mb-6">
+      <v-col v-for="(kpi, index) in kpiInsights" :key="index" cols="12" sm="4" lg="2">
+        <v-card class="kpi-card-v3" elevation="0" :class="{ 'urgent-card': kpi.isAlert && kpi.value > 0 }">
+          <v-card-text class="pa-4">
             <div class="d-flex justify-space-between align-start mb-2">
-              <div>
-                <div class="text-subtitle-2 text-medium-emphasis mb-1">{{ kpi.label }}</div>
-                <div class="text-h4 font-weight-bold" :class="`text-${kpi.color}`">
-                  <template v-if="loading">
-                    <v-progress-circular indeterminate :size="24" :width="2" :color="kpi.color" />
-                  </template>
-                  <template v-else>
-                    {{ kpi.isCurrency ? formatCurrency(kpi.value, true) : kpi.value }}
-                  </template>
-                </div>
-              </div>
-              <v-avatar :color="kpi.color" variant="tonal" size="48" class="rounded-lg">
-                <v-icon :color="kpi.color" size="28">{{ kpi.icon }}</v-icon>
-              </v-avatar>
+              <div class="text-tiny font-weight-black text-grey text-uppercase">{{ kpi.label }}</div>
+              <v-icon :color="kpi.color" size="18">{{ kpi.icon }}</v-icon>
             </div>
             
-            <div class="d-flex align-center mt-2">
-              <v-icon 
-                size="16" 
-                :color="kpi.subColor || 'grey'" 
-                class="mr-1"
-                v-if="kpi.subIcon"
-              >
-                {{ kpi.subIcon }}
-              </v-icon>
-              <div class="text-caption font-weight-medium" :class="kpi.subColor || 'text-grey'">
-                {{ kpi.sub }}
-              </div>
+            <h2 class="text-h4 font-weight-black tracking-tight mb-2">
+              {{ kpi.isCurrency ? formatCurrency(kpi.value, true) : kpi.value }}
+            </h2>
+            
+            <div v-if="kpi.trend !== undefined" class="d-flex align-center gap-1">
+               <template v-if="kpi.trend !== 0">
+                 <div class="trend-badge-mini" :class="kpi.trend > 0 ? (kpi.inverseTrend ? 'minus' : 'plus') : (kpi.inverseTrend ? 'plus' : 'minus')">
+                   {{ Math.abs(kpi.trend) }}%
+                 </div>
+               </template>
+               <span class="text-tiny font-weight-bold text-grey-darken-1 text-truncate">{{ kpi.detail }}</span>
             </div>
+            <div v-else class="text-tiny font-weight-bold text-grey-lighten-1">Đang hoạt động</div>
           </v-card-text>
         </v-card>
       </v-col>
     </v-row>
 
-    <v-row>
-      <v-col cols="12" md="8">
-        <v-card class="h-100" elevation="2">
-          <v-card-title class="pa-4 d-flex align-center justify-space-between">
-            <div class="d-flex align-center">
-              <v-icon class="mr-2 text-primary" size="24">mdi-chart-bar</v-icon>
-              <span>Doanh thu 6 tháng</span>
+    <!-- ── ROW 2: PRIMARY ANALYTICS (2.2) ── -->
+    <v-row class="mb-6">
+      <!-- Revenue Trend -->
+      <v-col cols="12" lg="7">
+        <v-card class="insight-card-flat h-100 pa-6" elevation="0">
+          <div class="d-flex justify-space-between align-center mb-4">
+            <div>
+              <div class="text-subtitle-1 font-weight-black">Doanh thu & Mục tiêu</div>
+              <div class="text-caption text-grey font-weight-bold">Tiến độ tháng: <span class="text-success">{{ stats.revenueProgress }}%</span></div>
             </div>
-            <v-chip size="small" color="primary" variant="tonal">
-              Tổng: {{ formatCurrency(stats.revenueTotal, true) }}
-            </v-chip>
-          </v-card-title>
-          <v-divider></v-divider>
-          <v-card-text class="pa-4">
-            <div v-if="loading" class="d-flex justify-center align-center" style="height: 300px">
-              <v-progress-circular indeterminate color="primary" size="50" />
+            <div class="text-right">
+              <div class="text-h6 font-weight-black text-primary">{{ formatCurrency(stats.revenueMonth) }}</div>
+              <v-progress-linear :model-value="stats.revenueProgress" color="success" height="6" rounded class="mt-1" style="width: 100px"></v-progress-linear>
             </div>
-            <div v-else class="chart-container pt-8">
-              <div v-if="!stats.revenueByMonth?.length" class="text-center w-100 text-grey">
-                Chưa có dữ liệu doanh thu
-              </div>
-              <div 
-                v-for="(item, i) in stats.revenueByMonth" 
-                :key="i"
-                class="chart-bar-wrap d-flex flex-column align-center justify-end"
-                style="height: 100%"
-              >
-                <v-tooltip location="top">
-                  <template v-slot:activator="{ props }">
-                    <div 
-                      v-bind="props"
-                      class="chart-bar-group d-flex flex-column align-center w-100"
-                    >
-                      <div class="text-caption mb-1 font-weight-bold text-primary">
-                        {{ item.revenue > 0 ? formatCurrency(item.revenue, true) : '' }}
-                      </div>
-                      <div 
-                        class="chart-bar bg-primary rounded-t-lg w-100"
-                        :style="{ height: getBarHeight(item.revenue) + 'px', opacity: 0.8 }"
-                      />
-                    </div>
-                  </template>
-                  <span>{{ formatCurrency(item.revenue) }}</span>
-                </v-tooltip>
-                <div class="text-caption mt-2 text-medium-emphasis font-weight-medium">
-                  {{ item.month }}
-                </div>
-              </div>
-            </div>
-          </v-card-text>
+          </div>
+          <apexchart 
+            v-if="stats.revenueByMonth?.length"
+            type="area" 
+            height="280" 
+            :options="revenueChartOptions" 
+            :series="revenueSeries"
+          />
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="4">
-        <v-card class="h-100" elevation="2">
-          <v-card-title class="pa-4 d-flex align-center">
-            <v-icon class="mr-2 text-success" size="24">mdi-door-open</v-icon>
-            Check-in hôm nay
-          </v-card-title>
-          <v-divider></v-divider>
-          <v-card-text class="pa-4 d-flex flex-column align-center justify-center h-75">
-            <div class="position-relative d-flex justify-center align-center my-4">
+      <!-- Check-in Traffic -->
+      <v-col cols="12" lg="5">
+        <v-card class="insight-card-flat h-100 pa-6" elevation="0">
+           <div class="text-subtitle-1 font-weight-black mb-4">Lượt khách 7 ngày qua</div>
+           <apexchart 
+            v-if="stats.checkinChartData?.length"
+            type="bar" 
+            height="280" 
+            :options="checkinChartOptions" 
+            :series="checkinSeries"
+          />
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <!-- ── ROW 3: CAPACITY & DISTRIBUTION ── -->
+    <v-row class="mb-6">
+      <!-- Gym Occupancy -->
+      <v-col cols="12" lg="4">
+        <v-card class="insight-card-flat h-100 pa-6 overflow-hidden" elevation="0">
+           <div class="d-flex justify-space-between mb-4">
+              <div class="text-subtitle-1 font-weight-black">Tải trọng phòng Gym</div>
+              <v-chip :color="capacityStatus.color" size="x-small" label class="font-weight-black">{{ capacityStatus.text }}</v-chip>
+           </div>
+           
+           <div class="text-center py-4">
               <v-progress-circular
-                :model-value="100"
-                :size="180"
-                :width="15"
-                color="grey-lighten-3"
-                class="position-absolute"
-              />
-              <v-progress-circular
-                :model-value="currentlyInGymPercent"
-                :size="180"
-                :width="15"
-                color="success"
+                :model-value="stats.occupancy?.percentage || 0"
+                :size="160"
+                :width="12"
+                :color="capacityStatus.color"
                 rotate="270"
                 linecap="round"
               >
                 <div class="text-center">
-                  <div class="text-h3 font-weight-bold text-success mb-1">
-                    {{ loading ? '-' : stats.currentlyInGym }}
-                  </div>
-                  <div class="text-body-2 text-medium-emphasis text-uppercase font-weight-bold">
-                    Đang tập
-                  </div>
+                  <div class="text-h4 font-weight-black">{{ Math.round(stats.occupancy?.percentage || 0) }}%</div>
+                  <div class="text-tiny font-weight-bold text-grey">Live</div>
                 </div>
               </v-progress-circular>
-            </div>
-            
-            <div class="d-flex w-100 mt-6 justify-space-around">
-               <div class="text-center">
-                 <div class="text-h6 font-weight-bold">{{ stats.checkInsToday }}</div>
-                 <div class="text-caption text-grey">Tổng lượt vào</div>
-               </div>
-            </div>
-          </v-card-text>
+           </div>
+
+           <v-divider class="my-4 border-dashed" />
+           <div class="d-flex justify-space-between align-center">
+             <span class="text-caption font-weight-bold text-grey">Giờ cao điểm (Dự kiến)</span>
+             <span class="text-caption font-weight-black text-primary">{{ stats.occupancy?.peakHour }}</span>
+           </div>
+        </v-card>
+      </v-col>
+
+      <!-- Package mix -->
+      <v-col cols="12" lg="4">
+        <v-card class="insight-card-flat h-100 pa-6" elevation="0">
+           <div class="text-subtitle-1 font-weight-black mb-4">Phân loại gói tập</div>
+           <apexchart 
+            v-if="stats.revenueByPackage?.length"
+            type="donut" 
+            height="240" 
+            :options="packageChartOptions" 
+            :series="packageSeries"
+          />
+        </v-card>
+      </v-col>
+
+      <!-- Operations summary -->
+      <v-col cols="12" lg="4">
+        <v-card class="insight-card-flat h-100 pa-6" elevation="0">
+           <div class="text-subtitle-1 font-weight-black mb-4">Vận hành hôm nay</div>
+           <div class="d-flex flex-column gap-3">
+              <div class="op-item-white shadow-sm pa-3 rounded-lg border d-flex align-center">
+                 <v-avatar size="32" color="error" variant="tonal" class="mr-3"><v-icon size="16">mdi-hammer-wrench</v-icon></v-avatar>
+                 <div>
+                    <div class="text-tiny font-weight-bold text-grey">Thiết bị lỗi</div>
+                    <div class="text-body-2 font-weight-black text-error">{{ stats.equipmentHealth?.broken }} máy cần sửa</div>
+                 </div>
+                 <v-spacer />
+                 <v-btn icon="mdi-chevron-right" variant="text" size="small" to="/equipment"></v-btn>
+              </div>
+              <div class="op-item-white shadow-sm pa-3 rounded-lg border d-flex align-center">
+                 <v-avatar size="32" color="primary" variant="tonal" class="mr-3"><v-icon size="16">mdi-account-tie-voice</v-icon></v-avatar>
+                 <div>
+                    <div class="text-tiny font-weight-bold text-grey">PT Hoạt động</div>
+                    <div class="text-body-2 font-weight-black">{{ stats.activeTrainersCount?.value }} đang dạy</div>
+                 </div>
+              </div>
+              <div class="op-item-white shadow-sm pa-3 rounded-lg border d-flex align-center">
+                 <v-avatar size="32" color="success" variant="tonal" class="mr-3"><v-icon size="16">mdi-lead-pencil</v-icon></v-avatar>
+                 <div>
+                    <div class="text-tiny font-weight-bold text-grey">Tiềm năng mới</div>
+                    <div class="text-body-2 font-weight-black">{{ stats.prospectiveLeads }} contacts</div>
+                 </div>
+              </div>
+           </div>
         </v-card>
       </v-col>
     </v-row>
 
+    <!-- ── ROW 4: QUICK VIEW TABLES (2.3 & 2.5) ── -->
     <v-row>
-      <v-col cols="12" md="6">
-        <v-card elevation="2" class="h-100">
-          <v-card-title class="pa-4 d-flex align-center justify-space-between">
-            <div class="d-flex align-center">
-              <v-icon class="mr-2 text-warning">mdi-clock-alert</v-icon>
-              Sắp hết hạn (≤ 7 ngày)
-            </div>
-            <v-chip v-if="!loading" color="warning" size="small" variant="flat" class="font-weight-bold">
-              {{ stats.expiringSoonList?.length || 0 }}
-            </v-chip>
-          </v-card-title>
-          <v-divider></v-divider>
-          
-          <div v-if="loading" class="d-flex justify-center pa-8">
-            <v-progress-circular indeterminate color="warning" />
-          </div>
-          
-          <v-list v-else-if="stats.expiringSoonList?.length" lines="two" class="pa-2">
-            <template v-for="(item, i) in stats.expiringSoonList.slice(0, 5)" :key="item.id">
-              <v-list-item rounded="lg" class="mb-1">
-                <template #prepend>
-                  <v-avatar color="warning" variant="tonal" size="40" class="mr-3">
-                    <span class="text-h6 font-weight-bold">{{ getInitials(item.memberName) }}</span>
-                  </v-avatar>
-                </template>
-                
-                <v-list-item-title class="font-weight-bold">
-                  {{ item.memberName }}
-                  <span class="text-caption text-grey ms-2">({{ item.memberCode }})</span>
-                </v-list-item-title>
-                
-                <v-list-item-subtitle class="mt-1">
-                  {{ item.packageName }}
-                </v-list-item-subtitle>
-                
-                <template #append>
-                  <div class="text-right">
-                    <v-chip 
-                      :color="item.daysLeft <= 3 ? 'error' : 'warning'" 
-                      size="small" 
-                      variant="flat"
-                      class="mb-1"
-                    >
-                      Còn {{ item.daysLeft }} ngày
-                    </v-chip>
-                    <div class="text-caption text-grey">
-                      {{ formatShortDate(item.endDate) }}
-                    </div>
-                  </div>
-                </template>
-              </v-list-item>
-              <v-divider v-if="i < Math.min(stats.expiringSoonList.length, 5) - 1" inset></v-divider>
-            </template>
-          </v-list>
-          
-          <div v-else class="pa-8 text-center text-grey">
-            <v-icon size="48" color="grey-lighten-2" class="mb-2">mdi-check-circle-outline</v-icon>
-            <div>Không có gói tập nào sắp hết hạn</div>
-          </div>
-          
-          <v-divider></v-divider>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn color="warning" variant="text" to="/subscriptions">
-              Xem tất cả
-              <v-icon end>mdi-arrow-right</v-icon>
-            </v-btn>
-          </v-card-actions>
+      <!-- Member management (Quick views) -->
+      <v-col cols="12" lg="8">
+        <v-card class="insight-card-flat" elevation="0">
+          <v-tabs v-model="memberTab" color="primary" density="comfortable">
+            <v-tab value="expiring" class="text-caption font-weight-black">Sắp hết hạn ({{ stats.expiringSoonList?.length }})</v-tab>
+            <v-tab value="new" class="text-caption font-weight-black">Hội viên mới</v-tab>
+          </v-tabs>
+          <v-divider />
+          <v-window v-model="memberTab">
+            <v-window-item value="expiring">
+              <v-table density="comfortable" class="action-table-v3">
+                <thead>
+                  <tr class="bg-grey-lighten-5">
+                    <th class="text-tiny font-weight-black">HỘI VIÊN</th>
+                    <th class="text-tiny font-weight-black">GÓI TẬP</th>
+                    <th class="text-tiny font-weight-black">HẾT HẠN</th>
+                    <th class="text-right text-tiny font-weight-black">HÀNH ĐỘNG</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in stats.expiringSoonList?.slice(0, 5)" :key="item.id">
+                    <td>
+                      <div class="d-flex align-center">
+                        <v-avatar size="28" color="primary" variant="tonal" class="mr-2 text-tiny font-weight-bold">{{ getInitials(item.memberName) }}</v-avatar>
+                        <div class="text-caption font-weight-black">{{ item.memberName }}</div>
+                      </div>
+                    </td>
+                    <td class="text-caption">{{ item.packageName }}</td>
+                    <td class="text-caption" :class="item.daysLeft <= 3 ? 'text-error font-weight-bold' : ''">{{ item.daysLeft }} ngày</td>
+                    <td class="text-right">
+                       <v-btn icon="mdi-phone" size="x-small" color="success" variant="tonal" :href="'tel:'+item.phoneNumber" class="mr-2 rounded-lg"></v-btn>
+                       <v-btn size="x-small" color="primary" class="font-weight-black px-3 rounded-lg" @click="$router.push('/billing?memberCode='+item.memberCode)">Gia hạn</v-btn>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-window-item>
+            <v-window-item value="new">
+              <v-table density="comfortable" class="action-table-v3">
+                <thead>
+                  <tr class="bg-grey-lighten-5">
+                    <th class="text-tiny font-weight-black">HỘI VIÊN</th>
+                    <th class="text-tiny font-weight-black">MÃ HV</th>
+                    <th class="text-tiny font-weight-black">NGÀY THAM GIA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in stats.newMembersList" :key="item.id">
+                    <td class="text-caption font-weight-black">{{ item.fullName }}</td>
+                    <td><v-chip size="x-small" label>{{ item.memberCode }}</v-chip></td>
+                    <td class="text-caption">{{ formatShortDate(item.joinedDate) }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-window-item>
+          </v-window>
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="6">
-        <v-card elevation="2" class="h-100">
-          <v-card-title class="pa-4 d-flex align-center">
-            <v-icon class="mr-2 text-success">mdi-cash-multiple</v-icon>
-            Thanh toán gần nhất
-          </v-card-title>
-          <v-divider></v-divider>
-          
-          <div v-if="loading" class="d-flex justify-center pa-8">
-            <v-progress-circular indeterminate color="success" />
-          </div>
-          
-          <v-list v-else-if="stats.recentPayments?.length" lines="two" class="pa-2">
-            <template v-for="(item, i) in stats.recentPayments" :key="item.id">
-              <v-list-item rounded="lg" class="mb-1">
-                <template #prepend>
-                  <v-avatar color="success" variant="tonal" size="40" class="mr-3">
-                    <v-icon>mdi-currency-usd</v-icon>
-                  </v-avatar>
-                </template>
-                
-                <v-list-item-title class="font-weight-bold">
-                  {{ item.memberName }}
-                </v-list-item-title>
-                
-                <v-list-item-subtitle class="mt-1 d-flex align-center">
-                  <v-icon size="14" class="mr-1">mdi-package-variant-closed</v-icon>
-                  {{ item.packageName }}
-                </v-list-item-subtitle>
-                
-                <template #append>
-                  <div class="text-right">
-                    <div class="text-success font-weight-black">
-                      +{{ formatCurrency(item.amount) }}
-                    </div>
-                    <div class="text-caption text-grey">
-                      {{ formatDateTime(item.paymentDate) }}
-                    </div>
-                  </div>
-                </template>
+      <!-- Today's Classes -->
+      <v-col cols="12" lg="4">
+        <v-card class="insight-card-flat h-100" elevation="0">
+           <div class="pa-4 font-weight-black border-b d-flex align-center">
+             <v-icon start size="18" color="primary">mdi-calendar-clock</v-icon>
+             Lớp học & Hoạt động hôm nay
+           </div>
+           <v-list density="compact" class="pa-2">
+              <v-list-item v-for="c in stats.classesToday" :key="c.id" class="rounded-lg mb-2 border">
+                 <template #prepend>
+                   <div class="text-caption font-weight-black text-primary mr-3">{{ c.time }}</div>
+                 </template>
+                 <v-list-item-title class="text-caption font-weight-black">{{ c.name }}</v-list-item-title>
+                 <v-list-item-subtitle class="text-tiny">{{ c.trainerName }} • {{ c.enrolled }}/{{ c.capacity }}</v-list-item-subtitle>
+                 <template #append>
+                    <v-chip size="x-small" :color="c.status === 'Upcoming' ? 'info' : 'success'" class="font-weight-bold">{{ c.status }}</v-chip>
+                 </template>
               </v-list-item>
-              <v-divider v-if="i < stats.recentPayments.length - 1" inset></v-divider>
-            </template>
-          </v-list>
-          
-          <div v-else class="pa-8 text-center text-grey">
-            <v-icon size="48" color="grey-lighten-2" class="mb-2">mdi-cash-remove</v-icon>
-            <div>Chưa có giao dịch nào</div>
-          </div>
-          
-          <v-divider></v-divider>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn color="success" variant="text" to="/billing">
-              Xem tất cả
-              <v-icon end>mdi-arrow-right</v-icon>
-            </v-btn>
-          </v-card-actions>
+              <div v-if="!stats.classesToday?.length" class="text-center py-8 text-grey text-caption opacity-60">
+                 Không có lớp học nào được đặt hôm nay.
+              </div>
+           </v-list>
         </v-card>
       </v-col>
     </v-row>
@@ -295,202 +288,196 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { dashboardService } from '@/services/dashboardService'
 import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 
-const authStore = useAuthStore()
 const { handleError } = useApiErrorHandler()
-const loading = ref(false)
+const loading = ref(true)
+const currentTime = ref(new Date().toLocaleTimeString('vi-VN'))
+const lastUpdated = ref(new Date().toLocaleTimeString('vi-VN'))
+const memberTab = ref('expiring')
+let clockInterval = null
+let refreshInterval = null
 
 const stats = ref({
-  totalActiveMembers: 0,
-  newMembersThisMonth: 0,
-  activeSubscriptions: 0,
-  expiringIn7Days: 0,
-  expiredSubscriptions: 0,
-  checkInsToday: 0,
-  currentlyInGym: 0,
-  revenueToday: 0,
-  revenueThisMonth: 0,
-  revenueTotal: 0,
+  insights: [],
+  revenueToday: { value: 0, trend: 0 },
+  checkInsToday: { value: 0, trend: 0 },
+  activeMembers: { value: 0, trend: 0 },
+  expiringSubscriptionsCount: { value: 0 },
+  activeTrainersCount: { value: 0 },
+  equipmentAlertCount: { value: 0 },
+  occupancy: { current: 0, max: 100, percentage: 0, peakHour: '' },
+  revenueMonth: 0,
+  revenueTarget: 0,
+  revenueProgress: 0,
   revenueByMonth: [],
-  recentPayments: [],
+  checkinChartData: [],
+  revenueByPackage: [],
   expiringSoonList: [],
-  prospectiveMembersCount: 0
+  newMembersList: [],
+  classesToday: [],
+  equipmentHealth: { broken: 0 }
 })
 
-// ── KPI Cards ──
-const kpiCards = computed(() => [
+// ── KPI Logic (2.1) ──
+const kpiInsights = computed(() => [
   {
-    label: 'Hội viên Active',
-    value: stats.value.totalActiveMembers, 
-    sub: `+${stats.value.newMembersThisMonth} tháng này`,
-    icon: 'mdi-account-group',
-    color: 'primary',
-    subColor: 'text-success',
-    subIcon: 'mdi-trending-up',
-    to: '/members'
-  },
-  {
-    label: 'Gói tập Active',
-    value: stats.value.activeSubscriptions,
-    sub: stats.value.expiringIn7Days > 0 
-      ? `${stats.value.expiringIn7Days} sắp hết hạn`
-      : 'Tất cả ổn định',
-    icon: 'mdi-card-account-details',
-    color: stats.value.expiringIn7Days > 0 ? 'warning' : 'info',
-    subColor: stats.value.expiringIn7Days > 0 ? 'text-warning' : 'text-grey',
-    subIcon: stats.value.expiringIn7Days > 0 ? 'mdi-alert-circle' : 'mdi-check-circle',
-    to: '/subscriptions'
-  },
-  {
-    label: 'Doanh thu tháng',
-    value: stats.value.revenueThisMonth,
+    label: 'Doanh thu hôm nay',
+    value: stats.value.revenueToday?.value || 0,
+    trend: stats.value.revenueToday?.trend || 0,
+    detail: 'vs Hôm qua',
     isCurrency: true,
-    sub: `Hôm nay: ${formatCurrency(stats.value.revenueToday, true)}`,
-    icon: 'mdi-cash-register',
-    color: 'success',
-    subColor: 'text-success',
-    subIcon: 'mdi-calendar-today',
-    to: '/billing'
+    icon: 'mdi-currency-usd',
+    color: 'success'
   },
   {
-    label: 'Check-in Hôm nay',
-    value: stats.value.checkInsToday,
-    sub: `${stats.value.currentlyInGym} đang tập`,
+    label: 'Lượt Check-in',
+    value: stats.value.checkInsToday?.value || 0,
+    trend: stats.value.checkInsToday?.trend || 0,
+    detail: 'vs Hôm qua',
     icon: 'mdi-login-variant',
-    color: 'deep-purple',
-    subColor: 'text-deep-purple',
-    subIcon: 'mdi-dumbbell',
-    to: '/checkins'
+    color: 'primary'
   },
   {
-    label: 'Khách tiềm năng',
-    value: stats.value.prospectiveMembersCount || 0,
-    sub: 'Từ Marketing Web',
-    icon: 'mdi-account-star',
-    color: 'orange',
-    subColor: 'text-orange',
-    subIcon: 'mdi-earth',
-    to: '/members'
+    label: 'Tổng Hội viên',
+    value: stats.value.activeMembers?.value || 0,
+    trend: stats.value.activeMembers?.trend || 0,
+    detail: 'Tăng trưởng',
+    icon: 'mdi-account-group',
+    color: 'info'
+  },
+  {
+    label: 'Sắp hết hạn',
+    value: stats.value.expiringSubscriptionsCount?.value || 0,
+    icon: 'mdi-timer-alert',
+    color: 'warning',
+    isAlert: (stats.value.expiringSubscriptionsCount?.value > 0)
+  },
+  {
+    label: 'PT Đang dạy',
+    value: stats.value.activeTrainersCount?.value || 0,
+    icon: 'mdi-account-tie-voice',
+    color: 'deep-purple'
+  },
+  {
+    label: 'Thiết bị lỗi',
+    value: stats.value.equipmentAlertCount?.value || 0,
+    icon: 'mdi-hammer-wrench',
+    color: 'error',
+    isAlert: (stats.value.equipmentAlertCount?.value > 0)
   }
 ])
 
-// Tính phần trăm vòng tròn check-in
-const currentlyInGymPercent = computed(() => {
-  if (stats.value.checkInsToday === 0) return 0
-  const percent = (stats.value.currentlyInGym / stats.value.checkInsToday) * 100
-  return Math.min(Math.round(percent), 100)
+// ── Capacity Display (2.2) ──
+const capacityStatus = computed(() => {
+  const p = stats.value.occupancy?.percentage || 0
+  if (p > 80) return { text: 'QUÁ TẢI', color: 'error' }
+  if (p > 50) return { text: 'BÌNH THƯỜNG', color: 'warning' }
+  return { text: 'AN TOÀN', color: 'success' }
 })
 
-// ── Chart helpers ──
-const maxRevenue = computed(() => {
-  const months = stats.value.revenueByMonth || []
-  if (months.length === 0) return 1
-  
-  // SỬA LỖI: Convert sang Number và xử lý mảng rỗng để tránh lỗi Infinity
-  const maxVal = Math.max(...months.map(m => Number(m.revenue || 0)))
-  return maxVal > 0 ? maxVal : 1
-})
+// ── Charts (2.2) ──
+const revenueSeries = computed(() => [{ name: 'Doanh thu', data: stats.value.revenueByMonth?.map(m => m.revenue) || [] }])
+const revenueChartOptions = computed(() => ({
+  chart: { toolbar: { show: false }, background: 'transparent' },
+  stroke: { curve: 'smooth', width: 3, colors: ['#EF5350'] },
+  xaxis: { categories: stats.value.revenueByMonth?.map(m => m.month) || [] },
+  fill: { type: 'gradient', gradient: { opacityFrom: 0.1, opacityTo: 0 } },
+  dataLabels: { enabled: false },
+  grid: { show: false }
+}))
 
-function getBarHeight(revenue) {
-  const max = maxRevenue.value
-  const val = Number(revenue || 0)
-  if (max === 0 || val === 0) return 0
-  // Cố định chiều cao tối thiểu 4px để hiển thị đẹp
-  return Math.max(4, Math.round((val / max) * 200))
-}
+const checkinSeries = computed(() => [{ name: 'Check-ins', data: stats.value.checkinChartData?.map(d => d.count) || [] }])
+const checkinChartOptions = computed(() => ({
+  chart: { toolbar: { show: false } },
+  plotOptions: { bar: { borderRadius: 4, columnWidth: '60%' } },
+  colors: ['#42A5F5'],
+  xaxis: { categories: stats.value.checkinChartData?.map(d => d.date) || [] },
+  grid: { show: false },
+  dataLabels: { enabled: false }
+}))
 
-// ── Format helpers ──
-function formatCurrency(amount, short = false) {
-  if (amount === null || amount === undefined) return '0 ₫'
-  
+const packageSeries = computed(() => stats.value.revenueByPackage?.map(p => p.value) || [])
+const packageChartOptions = computed(() => ({
+  labels: stats.value.revenueByPackage?.map(p => p.category) || [],
+  legend: { position: 'bottom', fontSize: '10px' },
+  stroke: { width: 0 },
+  plotOptions: { pie: { donut: { size: '70%', labels: { show: true, total: { show: true, label: 'Doanh thu', formatter: (w) => formatCurrency(w.globals.seriesTotals.reduce((a,b)=>a+b, 0), true) } } } } },
+  colors: ['#FF7043', '#26A69A', '#66BB6A', '#FFA726', '#AB47BC']
+}))
+
+// ── Helpers ──
+function formatCurrency(v, short = false) {
+  if (!v) return '0 ₫'
   if (short) {
-    if (amount >= 1_000_000_000) return (amount / 1_000_000_000).toFixed(1) + ' tỷ'
-    if (amount >= 1_000_000) return (amount / 1_000_000).toFixed(1) + ' tr'
-    if (amount >= 1_000) return (amount / 1_000).toFixed(0) + ' k'
+    if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + ' tr'
+    if (v >= 1_000) return (v / 1_000).toFixed(0) + ' k'
   }
-  
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v)
 }
-
-function formatDate(d) {
-  return new Intl.DateTimeFormat('vi-VN', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  }).format(d)
-}
-
-function formatShortDate(d) {
-  if (!d) return ''
-  return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
-}
-
-function formatDateTime(d) {
-   if (!d) return ''
-   return new Date(d).toLocaleTimeString('vi-VN', { hour: '2-digit', minute:'2-digit' }) + ' ' + 
-          new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
-}
-
+function formatShortDate(d) { return d ? new Date(d).toLocaleDateString('vi-VN') : '' }
 function getInitials(name) {
-  if (!name) return ''
-  const parts = name.split(' ')
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-  return (parts[parts.length - 2].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+  if (!name) return '?'
+  const p = name.trim().split(' ')
+  return p.length === 1 ? p[0].charAt(0).toUpperCase() : (p[p.length-2].charAt(0) + p[p.length-1].charAt(0)).toUpperCase()
 }
 
-// ── Load data ──
+// ── Data Loading ──
 async function loadDashboard() {
   loading.value = true
   try {
     const res = await dashboardService.getStats()
-    if (res?.success || res?.Success) { 
-       const data = res.data || res.Data
-       if (data) {
-         stats.value = data
-       }
+    if (res?.success || res?.Success) {
+      stats.value = res.data || res.Data
+      lastUpdated.value = new Date().toLocaleTimeString('vi-VN')
     }
-  } catch (e) {
-    console.error('Dashboard load error:', e)
-    // Tự động gọi AI chẩn đoán lỗi nếu load thất bại
-    handleError(e, { url: '/api/dashboard/stats' })
-  } finally {
-    loading.value = false
+  } catch (e) { 
+    handleError(e) 
+  } finally { 
+    loading.value = false 
   }
 }
 
-onMounted(loadDashboard)
+onMounted(() => {
+  loadDashboard()
+  
+  // Đồng hồ chạy từng giây
+  clockInterval = setInterval(() => {
+    currentTime.value = new Date().toLocaleTimeString('vi-VN')
+  }, 1000)
+
+  // Tự động làm mới dữ liệu mỗi 30 giây
+  refreshInterval = setInterval(() => {
+    loadDashboard()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (clockInterval) clearInterval(clockInterval)
+  if (refreshInterval) clearInterval(refreshInterval)
+})
 </script>
 
 <style scoped>
-.kpi-card {
-  transition: all .2s ease-in-out;
-  border-radius: 12px;
-}
-.kpi-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 25px 0 rgba(0, 0, 0, 0.1) !important;
-}
-.chart-container {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  height: 300px;
-  gap: 8px;
-}
-.chart-bar-wrap {
-  flex: 1;
-  min-width: 0;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-.chart-bar-wrap:hover {
-  opacity: 0.8;
-}
-.chart-bar {
-  transition: height 1s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 4px;
-  width: 100%;
-}
+.dashboard-wrapper { background-color: #f4f7fa; min-height: 100vh; font-family: 'Inter', sans-serif; }
+.text-primary-gradient { background: linear-gradient(135deg, #1A237E 0%, #B71C1C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.glow-text { text-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+.insight-card-flat { border-radius: 16px; background: #fff; border: 1px solid #eef2f6; box-shadow: 0 8px 24px rgba(0,0,0,0.02); }
+.kpi-card-v3 { border-radius: 16px; background: #fff; border: 1px solid #eef2f6; transition: transform 0.2s; }
+.kpi-card-v3:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.04); }
+.urgent-card { background: #FFF5F5 !important; border-color: #FEB2B2 !important; animation: pulse-error 2s infinite; }
+@keyframes pulse-error { 0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.2); } 70% { box-shadow: 0 0 0 8px rgba(244, 67, 54, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); } }
+.text-tiny { font-size: 10px; }
+.trend-badge-mini { font-size: 9px; font-weight: 900; padding: 1px 4px; border-radius: 4px; }
+.trend-badge-mini.plus { background: #E8F5E9; color: #2E7D32; }
+.trend-badge-mini.minus { background: #FFEBEE; color: #C62828; }
+.insight-ticker { background: #fff; overflow: hidden; }
+.ticker-wrapper { flex: 1; overflow: hidden; }
+.ticker-content { display: inline-block; white-space: nowrap; animation: ticker 40s linear infinite; }
+.insight-item { display: inline-block; font-weight: bold; font-size: 12px; margin-right: 40px; color: #546E7A; }
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.border-dashed { border-style: dashed !important; }
+.action-table-v3 th { padding: 12px !important; font-size: 10px !important; color: #94A3B8 !important; }
 </style>

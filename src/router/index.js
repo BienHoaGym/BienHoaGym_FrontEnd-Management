@@ -162,6 +162,13 @@ const routes = [
         name: 'Settings',
         component: () => import('@/views/settings/SettingsView.vue'),
         meta: { permission: 'settings.manage', title: 'Cài đặt hệ thống' }
+      },
+      // --- SECRET DEV ROUTE (HIDDEN) ---
+      {
+        path: 'admin-secret-seed',
+        name: 'AdminSecretSeed',
+        component: () => import('@/views/admin/SeedView.vue'),
+        meta: { permission: 'settings.manage', title: 'Dev: Nạp dữ liệu' }
       }
     ]
   },

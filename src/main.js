@@ -9,9 +9,11 @@ import vuetify from './plugins/vuetify'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 import { setupGlobalErrorCapture } from '@/composables/useApiErrorHandler'
+import VueApexCharts from "vue3-apexcharts";
 
 const app = createApp(App)
 app.use(createPinia())
+app.use(VueApexCharts);
 
 // Initialize Global AI Error Capture
 setupGlobalErrorCapture()

@@ -306,6 +306,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useBillingStore } from '@/stores/billing'
 import { usePackageStore } from '@/stores/package'
 import { useTrainerStore } from '@/stores/trainer'
@@ -321,6 +322,7 @@ const trainerStore = useTrainerStore()
 const memberStore = useMemberStore()
 const subscriptionStore = useSubscriptionStore()
 const authStore = useAuthStore()
+const router = useRouter()
 const { handleError } = useApiErrorHandler()
 
 const activeTab = ref('pos')
@@ -549,6 +551,12 @@ onMounted(() => {
   memberStore.fetchMembers(1, 100)
   subscriptionStore.fetchAll()
   fetchProviders()
+  
+  // Handle tab from query param
+  const queryTab = router.currentRoute.value.query.tab
+  if (queryTab && ['pos', 'history'].includes(queryTab)) {
+    activeTab.value = queryTab
+  }
 })
 </script>
 

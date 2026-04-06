@@ -320,5 +320,13 @@ const onSaved = () => {
 
 onMounted(() => {
   memberStore.fetchMembers(1, 10)
+  
+  // Open create dialog if 'action=add' is in URL
+  if (router.currentRoute.value.query.action === 'add') {
+    openCreate()
+    
+    // Clear query param without refreshing
+    router.replace({ query: {} })
+  }
 })
 </script>
