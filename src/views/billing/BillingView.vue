@@ -87,10 +87,13 @@
                     <v-btn icon="mdi-close" size="x-small" variant="text" @click="removeFromCart(i)"></v-btn>
                   </div>
                   <div class="d-flex align-center justify-space-between">
-                    <div class="d-flex align-center">
+                    <div v-if="item.type === 'Product'" class="d-flex align-center">
                       <v-btn icon="mdi-minus" size="x-small" density="comfortable" variant="tonal" @click="updateQty(i, -1)"></v-btn>
                       <span class="mx-3 font-weight-bold">{{ item.qty }}</span>
                       <v-btn icon="mdi-plus" size="x-small" density="comfortable" variant="tonal" @click="updateQty(i, 1)"></v-btn>
+                    </div>
+                    <div v-else class="text-caption grey--text">
+                      Số lượng: <span class="font-weight-bold ml-1">1</span>
                     </div>
                     <div class="font-weight-bold text-primary">{{ formatPrice(item.price * item.qty) }}</div>
                   </div>
@@ -113,19 +116,19 @@
                   clearable
                 ></v-autocomplete>
 
-                <!-- High Visibility Warning for Active Sub -->
+                <!-- Informative Warning for Renewal (Stacking) -->
                 <v-alert
-                  v-if="hasActiveSub"
-                  type="error"
+                  v-if="hasActiveSub && hasPackageInCart"
+                  type="info"
                   variant="tonal"
                   class="mb-3 rounded-lg"
                   density="compact"
                 >
                   <div class="text-caption font-weight-bold">
-                    <v-icon start size="14">mdi-alert-decagram</v-icon>
-                    Hội viên đã có gói tập đang sử dụng!
+                    <v-icon start size="14">mdi-information</v-icon>
+                    Gia hạn gói tập
                   </div>
-                  <div class="text-caption">Vui lòng không bán thêm gói mới để tránh bị trùng.</div>
+                  <div class="text-caption">Hội viên đang có gói tập. Gói mới sẽ tự động bắt đầu sau khi gói cũ hết hạn.</div>
                 </v-alert>
 
                 <!-- Pending Subscriptions section -->
@@ -313,6 +316,7 @@ import { useTrainerStore } from '@/stores/trainer'
 import { useMemberStore } from '@/stores/member'
 import { useSubscriptionStore } from '@/stores/subscription'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import providerService from '@/services/providerService'
 import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 
@@ -322,6 +326,7 @@ const trainerStore = useTrainerStore()
 const memberStore = useMemberStore()
 const subscriptionStore = useSubscriptionStore()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 const router = useRouter()
 const { handleError } = useApiErrorHandler()
 
@@ -351,9 +356,12 @@ const hasActiveSub = computed(() => {
   return subscriptionStore.subscriptions.some(s => {
     const sMemberId = s.memberId || s.MemberId
     const sStatus = s.status || s.Status
+    // Chỉ tính Active hoặc Pending (Nếu có gói cũ hết hạn thì ok)
     return sMemberId === selectedMember.value && (sStatus === 'Active' || sStatus === 'Pending')
   })
 })
+
+const hasPackageInCart = computed(() => cart.value.some(item => item.type === 'Package'))
 
 const catalog = computed(() => {
   const items = []
@@ -447,9 +455,19 @@ const addToCart = (item) => {
     showSnack('Sản phẩm đã hết hàng trong kho!', 'error')
     return
   }
+
+  // CHẶN: Chỉ cho phép tối đa 1 gói tập trong giỏ hàng để tránh nhầm lẫn
+  if (item.type === 'Package' && hasPackageInCart.value) {
+    showAlert('Giới hạn giỏ hàng', 'Chỉ có thể đăng ký tối đa 1 gói tập trong mỗi hóa đơn!', 'warning', 'mdi-alert-box')
+    return
+  }
   
   const existing = cart.value.find(c => c.id === item.id && c.type === item.type)
   if (existing) {
+    if (item.type === 'Package' || item.type === 'Subscription') {
+      showSnack('Gói tập này đã có trong giỏ hàng!', 'warning')
+      return
+    }
     if (item.type === 'Product' && existing.qty >= item.stock) {
         showSnack(`Số lượng vượt quá tồn kho (${item.stock})`, 'warning')
         return
@@ -464,6 +482,9 @@ const removeFromCart = (index) => cart.value.splice(index, 1)
 const updateQty = (index, delta) => {
   const itemInCart = cart.value[index]
   
+  // Không cho phép chỉnh sửa số lượng gói tập
+  if (itemInCart.type === 'Package' || itemInCart.type === 'Subscription') return
+
   // Find original item in catalog for stock check
   const original = catalog.value.find(c => c.id === itemInCart.id && c.type === itemInCart.type)
   
@@ -479,7 +500,7 @@ const handleCheckout = async () => {
   if (!cart.value.length) return
   
   if (!selectedMember.value) {
-    showSnack('Vui lòng chọn khách hàng trước khi thanh toán!', 'warning')
+    showAlert('Thiếu thông tin', 'Vui lòng chọn khách hàng trước khi thanh toán!', 'warning', 'mdi-account-alert')
     return
   }
   
@@ -499,9 +520,9 @@ const handleCheckout = async () => {
   }
   
   const res = await billingStore.createInvoice(payload)
-  if (res.success) {
+  if (res.success || res.Success) {
     showSnack('Thanh toán thành công!')
-    selectedInvoice.value = res.data
+    selectedInvoice.value = res.data || res.Data
     invoiceDialog.value = true
     cart.value = []
     discount.value = 0
@@ -510,9 +531,13 @@ const handleCheckout = async () => {
     // Refresh stock
     billingStore.fetchProducts()
   } else {
-    showSnack(res.message || 'Lỗi thanh toán: Vui lòng thử lại', 'error')
+    showAlert(
+      'Không thể thanh toán', 
+      res.message || res.Message || 'Lỗi hệ thống', 
+      'error', 
+      'mdi-alert-circle'
+    )
     console.error('Checkout error:', res)
-    // Tự động gọi AI phân tích lỗi thanh toán
     handleError(res, { url: '/api/billing/checkout' })
   }
 }
@@ -530,7 +555,13 @@ const printCurrentInvoice = () => {
 const formatPrice = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0)
 const formatDate = (d) => d ? new Date(d).toLocaleString('vi-VN') : '---'
 const formatDateShort = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : ''
+
 const showSnack = (msg, color = 'success') => snack.value = { show: true, message: msg, color }
+
+const showAlert = (title, message, color = 'primary', icon = 'mdi-information-outline', sub = '') => {
+  uiStore.showAlert(message, title, color, icon, sub)
+}
+
 const translateType = (t) => ({ 'Package': 'Gói tập', 'Product': 'Sản phẩm', 'PT': 'Buổi tập PT' }[t] || t)
 const getTypeColor = (t) => ({ 'Package': 'orange', 'Product': 'blue', 'PT': 'purple' }[t] || 'grey')
 const translatePaymentMethod = (m) => ({ 1: 'Tiền mặt', 2: 'Chuyển khoản', 3: 'Ví ĐT', 4: 'Thẻ' }[m] || 'Khác')
@@ -544,18 +575,46 @@ const fetchProviders = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   billingStore.fetchProducts()
   billingStore.fetchInvoices()
   packageStore.fetchPackages()
-  memberStore.fetchMembers(1, 100)
+  
+  // Tăng limit để tìm kiếm hội viên tốt hơn
+  await memberStore.fetchMembers(1, 500)
+  
   subscriptionStore.fetchAll()
   fetchProviders()
   
-  // Handle tab from query param
-  const queryTab = router.currentRoute.value.query.tab
-  if (queryTab && ['pos', 'history'].includes(queryTab)) {
-    activeTab.value = queryTab
+  // Handle query params
+  const query = router.currentRoute.value.query
+  const { tab, memberCode, memberId, subId } = query
+  
+  // 1. Chuyển Tab
+  if (tab && ['pos', 'history'].includes(tab)) {
+    activeTab.value = tab
+  }
+
+  // 2. Tự động chọn hội viên
+  if (memberId) {
+    selectedMember.value = memberId
+  } else if (memberCode) {
+    const member = memberStore.members.find(m => (m.memberCode || m.MemberCode) === memberCode)
+    if (member) {
+      selectedMember.value = member.id || member.Id
+    }
+  }
+
+  // 3. Tự động thêm gói tập chờ thanh toán vào giỏ hàng
+  if (subId) {
+    // Đợi một chút để store load data xong
+    setTimeout(() => {
+      const sub = pendingSubsForMember.value.find(s => s.id === subId)
+      if (sub) {
+        addPendingSubToCart(sub)
+        showSnack(`Đã chọn gói tập của hội viên để thanh toán`, 'info')
+      }
+    }, 800)
   }
 })
 </script>

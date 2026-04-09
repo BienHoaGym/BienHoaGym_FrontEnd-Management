@@ -172,6 +172,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import equipmentCategoryService from '@/services/equipmentCategoryService'
+import { useUiStore } from '@/stores/ui'
 
 const headers = [
   { title: 'Tên loại', key: 'name', sortable: true },
@@ -189,6 +190,7 @@ const saving = ref(false)
 const dialog = ref(false)
 const valid = ref(false)
 const form = ref(null)
+const uiStore = useUiStore()
 
 const search = ref('')
 const selectedGroup = ref('Tất cả nhóm')
@@ -261,7 +263,7 @@ const save = async () => {
     closeDialog()
   } catch (error) {
     console.error('Error saving category:', error)
-    alert(error.response?.data?.message || 'Có lỗi xảy ra')
+    uiStore.showError(error.response?.data?.message || 'Có lỗi xảy ra', 'Lỗi lưu phân loại')
   } finally {
     saving.value = false
   }
@@ -274,7 +276,7 @@ const confirmDelete = async (item) => {
       await fetchCategories()
     } catch (error) {
       console.error('Error deleting category:', error)
-      alert(error.response?.data?.message || 'Không thể xóa loại thiết bị này')
+      uiStore.showError(error.response?.data?.message || 'Không thể xóa loại thiết bị này', 'Lỗi xóa')
     }
   }
 }

@@ -2,10 +2,13 @@
 <template>
   <v-app>
     <router-view />
+    <!-- Global Alert Dialog System -->
+    <global-alert />
   </v-app>
 </template>
 
 <script setup>
+import GlobalAlert from '@/components/common/GlobalAlert.vue'
 </script>
 
 <style>

@@ -352,6 +352,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import providerService from '@/services/providerService'
+import { useUiStore } from '@/stores/ui'
 import { formatCurrency } from '@/utils/helpers'
 
 const headers = [
@@ -392,6 +393,7 @@ const selectedProvider = ref(null)
 const transactionHistory = ref([])
 const suppliedProducts = ref([])
 const suppliedEquipments = ref([])
+const uiStore = useUiStore()
 
 const editedIndex = ref(-1)
 const editedItem = ref({
@@ -484,7 +486,7 @@ const save = async () => {
     console.error('Error saving provider:', error)
     const message = error.response?.data?.message || error.response?.data?.Message || 'Có lỗi xảy ra'
     const errors = error.response?.data?.errors?.join('\n') || ''
-    alert(errors ? `${message}:\n${errors}` : message)
+    uiStore.showError(errors ? `${message}:\n${errors}` : message, 'Lỗi lưu nhà cung cấp')
   } finally {
     saving.value = false
   }
@@ -521,7 +523,7 @@ const confirmDelete = async (item) => {
       await fetchProviders()
     } catch (error) {
       console.error('Error deleting provider:', error)
-      alert(error.response?.data?.message || 'Không thể xóa nhà cung cấp này')
+      uiStore.showError(error.response?.data?.message || 'Không thể xóa nhà cung cấp này', 'Lỗi xóa')
     }
   }
 }

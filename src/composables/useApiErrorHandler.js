@@ -1,5 +1,6 @@
 // src/composables/useApiErrorHandler.js
 // Global API Error Interceptor - Standard Error Handling
+import { useUiStore } from '@/stores/ui'
 
 // Parse error from various response types
 async function parseError(errorOrResponse) {
@@ -51,16 +52,21 @@ export function useApiErrorHandler() {
   /**
    * Xử lý lỗi
    * @param {Error|Response|Object} error - Lỗi hoặc Response không thành công
-   * @param {Object} options - { url, silent }
+   * @param {Object} options - { url, silent, title }
    */
   async function handleError(error, options = {}) {
     const errorInfo = await parseError(error)
+    const uiStore = useUiStore()
 
     // Override với options nếu có
     if (options.url && !errorInfo.url) errorInfo.url = options.url
     if (options.status) errorInfo.status = options.status
 
     console.error('[API Error]', errorInfo)
+
+    if (!options.silent) {
+       uiStore.showError(errorInfo.message, options.title || 'Lỗi hệ thống')
+    }
 
     // Trả về thông tin lỗi để module xử lý thêm nếu cần
     return { ...errorInfo }

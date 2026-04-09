@@ -184,32 +184,57 @@
 
                   <template #item.actions="{ item }">
                     <div class="d-flex gap-1">
+                      <!-- Tạm dừng / Kích hoạt lại -->
                       <v-btn
                         v-if="item.status === 'Active'"
                         icon="mdi-pause"
                         size="x-small"
                         color="warning"
                         variant="text"
-                        title="Tạm dừng"
+                        title="Tạm dừng gói"
                         @click="handlePause(item)"
                       />
+                      <v-btn
+                        v-if="item.status === 'Suspended'"
+                        icon="mdi-play"
+                        size="x-small"
+                        color="success"
+                        variant="text"
+                        title="Kích hoạt lại"
+                        @click="handleResume(item)"
+                      />
+
+                      <!-- Gia hạn -->
                       <v-btn
                         v-if="item.status === 'Active' || item.status === 'Expired'"
                         icon="mdi-refresh"
                         size="x-small"
                         color="primary"
                         variant="text"
-                        title="Gia hạn"
+                        title="Gia hạn (Tính dồn ngày)"
                         @click="openRenew(item)"
                       />
+
+                      <!-- CHUYỂN SANG THANH TOÁN TẠI POS -->
                       <v-btn
                         v-if="item.status === 'Pending'"
                         icon="mdi-check"
                         size="x-small"
                         color="success"
                         variant="text"
-                        title="Kích hoạt"
-                        @click="handleActivate(item)"
+                        title="Thanh toán & Kích hoạt"
+                        @click="goToPayment(item)"
+                      />
+
+                      <!-- Hủy gói (Nghiệp vụ: Khách chịu thiệt) -->
+                      <v-btn
+                        v-if="item.status === 'Active' || item.status === 'Suspended'"
+                        icon="mdi-close-circle-outline"
+                        size="x-small"
+                        color="error"
+                        variant="text"
+                        title="Hủy gói (Ko hoàn tiền)"
+                        @click="handleCancel(item)"
                       />
                     </div>
                   </template>
@@ -312,12 +337,19 @@
               </v-card>
             </v-col>
             <v-col cols="6">
-              <v-card color="teal" variant="flat" class="text-center pa-4 rounded-lg h-100">
+              <v-card 
+                :color="activeSubscription?.status === 'Suspended' ? 'amber-darken-1' : (activeSubscription ? 'teal' : 'grey')" 
+                variant="flat" 
+                class="text-center pa-4 rounded-lg h-100"
+              >
                 <div class="text-h4 font-weight-bold mb-1">
-                  <v-icon v-if="activeSubscription">mdi-check</v-icon>
-                  <v-icon v-else>mdi-close</v-icon>
+                  <v-icon v-if="activeSubscription?.status === 'Suspended'">mdi-pause-circle</v-icon>
+                  <v-icon v-else-if="activeSubscription">mdi-check-circle</v-icon>
+                  <v-icon v-else>mdi-close-circle</v-icon>
                 </div>
-                <div class="text-caption font-weight-medium text-uppercase opacity-80">Gói Active</div>
+                <div class="text-caption font-weight-medium text-uppercase opacity-80">
+                  {{ activeSubscription?.status === 'Suspended' ? 'Đang tạm dừng' : (activeSubscription ? 'Gói Active' : 'Không có gói') }}
+                </div>
               </v-card>
             </v-col>
           </v-row>
@@ -387,17 +419,84 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- Dialog Tạm dừng gói -->
+    <v-dialog v-model="pauseDialog" max-width="450px">
+      <v-card class="rounded-xl pa-2">
+        <v-card-title class="d-flex align-center gap-2">
+          <v-icon color="warning">mdi-pause</v-icon>
+          <span class="text-h6 font-weight-bold">Tạm dừng gói tập</span>
+        </v-card-title>
+        
+        <v-card-text>
+          <p class="text-body-2 text-grey-darken-1 mb-4">
+            Hội viên: <strong>{{ member?.fullName }}</strong>. 
+            Vui lòng chọn hình thức tạm dừng:
+          </p>
+
+          <v-radio-group v-model="pauseType" class="mb-2">
+            <v-radio label="Tạm nghỉ KHÔNG xác định ngày về" value="indefinite"></v-radio>
+            <v-radio label="Tạm nghỉ CÓ thời hạn xác định" value="fixed"></v-radio>
+          </v-radio-group>
+
+          <v-expand-transition>
+            <div v-if="pauseType === 'fixed'">
+              <v-text-field
+                v-model.number="pauseDays"
+                label="Số ngày tạm nghỉ"
+                type="number"
+                variant="outlined"
+                density="comfortable"
+                suffix="ngày"
+                placeholder="Ví dụ: 15"
+                prefix="Cộng thêm "
+                hint="Hệ thống tự động cộng dồn số ngày này vào ngày hết hạn ngay lập tức"
+                persistent-hint
+                :rules="[v => !!v || 'Bạn phải nhập số ngày khi chọn Tạm nghỉ có thời hạn']"
+                required
+              />
+            </div>
+            <div v-else class="text-caption text-grey-darken-1 bg-grey-lighten-4 pa-3 rounded-lg border">
+              <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
+              Hệ thống ghi nhận ngày nghỉ. Khi hội viên quay lại tập, số ngày nghỉ thực tế sẽ được cộng dồn vào hạn dùng.
+            </div>
+          </v-expand-transition>
+        </v-card-text>
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn variant="text" color="grey-darken-1" @click="pauseDialog = false">Hủy</v-btn>
+          <v-btn color="warning" class="px-6 rounded-lg" :disabled="pauseType === 'fixed' && !pauseDays" @click="confirmPause" :loading="pausing">Xác nhận</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
   </div>
 </template>
 
 <script setup>
-// ... existing imports ...
-import { nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth' 
+import { useUiStore } from '@/stores/ui'
+import { memberService } from '@/services/memberService'
+import { subscriptionService } from '@/services/subscriptionService'
+import { packageService } from '@/services/packageService'
+import { checkinService } from '@/services/checkinService' 
+import MemberFormDialog from '@/components/members/MemberFormDialog.vue'
+import { formatDate, formatDateTime } from '@/utils/helpers'
 
 const faceDialog = ref(false)
 const regVideo = ref(null)
 const capturing = ref(false)
 let regStream = null
+
+// Dialog Tạm dừng
+const pauseDialog = ref(false)
+const pauseType = ref('indefinite')
+const pauseDays = ref(null)
+const selectedSubForPause = ref(null)
+const pausing = ref(false)
 
 const openFaceRegistration = async () => {
   faceDialog.value = true
@@ -406,7 +505,8 @@ const openFaceRegistration = async () => {
     regStream = await navigator.mediaDevices.getUserMedia({ video: true })
     if (regVideo.value) regVideo.value.srcObject = regStream
   } catch (err) {
-    alert('Không thể mở camera đăng ký!')
+    const uiStore = useUiStore()
+    uiStore.showWarning('Không thể mở camera đăng ký! Vui lòng kiểm tra quyền truy cập camera.', 'Lỗi Camera')
   }
 }
 
@@ -420,6 +520,7 @@ const closeFaceRegistration = () => {
 
 const registerFace = async () => {
   capturing.value = true
+  const uiStore = useUiStore()
   // Mã hóa ổn định dựa trên MemberCode để phục vụ Simulation Check-in
   const mockEncoding = `MOCK_FACE_VECTOR_${member.value.memberCode}`
   
@@ -431,28 +532,17 @@ const registerFace = async () => {
     
     if (res.success || res.Success) {
       member.value.faceEncoding = mockEncoding
-      alert('✅ Đăng ký khuôn mặt thành công!')
+      uiStore.showSuccess('Đăng ký khuôn mặt thành công!', 'Face ID')
       closeFaceRegistration()
     } else {
-      alert(res.message || 'Lỗi đăng ký khuôn mặt')
+      uiStore.showError(res.message || 'Lỗi đăng ký khuôn mặt', 'Face ID')
     }
   } catch (error) {
-    alert('Lỗi kết nối khi đăng ký khuôn mặt')
+    uiStore.showError('Lỗi kết nối khi đăng ký khuôn mặt', 'Lỗi kết nối')
   } finally {
     capturing.value = false
   }
 }
-
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth' 
-import { memberService } from '@/services/memberService'
-import { subscriptionService } from '@/services/subscriptionService'
-import { packageService } from '@/services/packageService'
-import { checkinService } from '@/services/checkinService' 
-
-import MemberFormDialog from '@/components/members/MemberFormDialog.vue'
-import { formatDate, formatDateTime } from '@/utils/helpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -469,6 +559,7 @@ const renewing = ref(false)
 const error = ref(null)
 const editDialog = ref(false)
 const renewDialog = ref(false)
+const uiStore = useUiStore()
 const activeTab = ref('info')
 const checkoutLoadingId = ref(null) 
 const selectedSub = ref(null)
@@ -479,7 +570,7 @@ const formatCurrency = (amount) => {
 }
 
 const activeSubscription = computed(() => 
-  subscriptions.value.find(s => s.status === 'Active')
+  subscriptions.value.find(s => s.status === 'Active' || s.status === 'Suspended')
 )
 
 const subHeaders = [
@@ -592,7 +683,7 @@ const handleCheckOut = async (checkInId) => {
     }
   } catch (error) {
     console.error(error)
-    alert('Lỗi kết nối đến máy chủ')
+    uiStore.showError('Lỗi kết nối đến máy chủ', 'Lỗi hệ thống')
   } finally {
     checkoutLoadingId.value = null
   }
@@ -628,11 +719,10 @@ const confirmRenew = async () => {
 
     if (res.success || res.Success) {
       renewDialog.value = false
-      alert(res.message || res.Message || 'Thao tác thành công!')
+      showAlert('Thành công', res.message || res.Message || 'Thao tác thành công!', 'success', 'mdi-check-circle')
       loadSubscriptions()
     } else {
-      // Hiển thị trực tiếp lỗi nghiệp vụ từ backend
-      alert(res.message || res.Message || 'Thao tác không thành công. Vui lòng kiểm tra lại trạng thái hội viên.')
+      showAlert('Không thể gia hạn', res.message || res.Message || 'Thao tác không thành công.', 'error', 'mdi-alert-circle')
     }
   } catch (e) {
     console.error('Renew error details:', e)
@@ -661,44 +751,97 @@ const confirmRenew = async () => {
       errorMsg = 'Lỗi từ Server:\n' + JSON.stringify(errorData, null, 2)
     }
 
-    alert(errorMsg || e.message || 'Lỗi không xác định khi kết nối server')
+    showAlert('Lỗi gia hạn', errorMsg || e.message || 'Lỗi không xác định khi kết nối server', 'error', 'mdi-alert-circle')
   } finally {
     renewing.value = false
   }
 }
 
-const handlePause = async (item) => {
-  const id = item.id || item.Id
-  if (!confirm('Tạm dừng gói tập này?')) return
+const handlePause = (item) => {
+  selectedSubForPause.value = item
+  pauseDialog.value = true
+  pauseDays.value = null
+  pauseType.value = 'indefinite'
+}
+
+const confirmPause = async () => {
+  if (!selectedSubForPause.value) return
+  
+  const id = selectedSubForPause.value.id || selectedSubForPause.value.Id
+  const days = pauseType.value === 'fixed' ? pauseDays.value : null
+  
+  pausing.value = true
   try {
-    const res = await subscriptionService.pause(id)
+    const res = await subscriptionService.pause(id, days)
     if (res.success || res.Success) {
+      pauseDialog.value = false
+      showAlert('Thành công', res.message || 'Đã tạm dừng gói tập', 'success', 'mdi-check-circle')
       loadSubscriptions()
     } else {
-      alert(res.message || res.Message || 'Thao tác thất bại')
+      showAlert('Lỗi', res.message || 'Thao tác thất bại', 'error', 'mdi-alert')
     }
-  } catch (e) {
-    console.error(e)
+  } catch (e) { 
+    console.error(e) 
+    showAlert('Lỗi', 'Không thể kết nối server', 'error', 'mdi-alert')
+  } finally {
+    pausing.value = false
   }
 }
 
-const handleActivate = async (item) => {
+const handleResume = (item) => {
   const id = item.id || item.Id
-  if (!confirm('Kích hoạt gói tập này? (Yêu cầu đã thanh toán)')) return
-  try {
-    const res = await subscriptionService.activate(id)
-    if (res.success || res.Success) {
-      loadSubscriptions()
-    } else {
-      alert(res.message || res.Message || 'Thao tác thất bại. Có thể gói này chưa được thanh toán.')
+  uiStore.showConfirm(
+    'Kích hoạt lại gói tập này?',
+    'Xác nhận kích hoạt lại',
+    async () => {
+      try {
+        const res = await subscriptionService.resume(id)
+        if (res.success || res.Success) {
+          loadSubscriptions()
+        } else {
+          showAlert('Lỗi', res.message || res.Message || 'Thao tác thất bại', 'error', 'mdi-alert')
+        }
+      } catch (e) { console.error(e) }
     }
-  } catch (e) {
-    console.error(e)
-  }
+  )
+}
+
+const handleCancel = (item) => {
+  const id = item.id || item.Id
+  uiStore.showConfirm(
+    'BẠN CÓ CHẮC CHẮN MUỐN HỦY GÓI TẬP NÀY?\n\nLưu ý: Hội viên sẽ mất toàn bộ quyền lợi của gói này và phòng tập không hoàn tiền. Sau khi hủy, hội viên có thể đăng ký gói mới ngay lập tức.',
+    'CẢNH BÁO HỦY GÓI',
+    async () => {
+       // Tạm thời dùng lý do mặc định vì chưa có Modal Prompt
+       const reason = 'Hủy bởi quản trị viên'
+       try {
+        const res = await subscriptionService.cancel(id, reason)
+        if (res.success || res.Success) {
+          loadSubscriptions()
+          showAlert('Đã hủy', 'Đã hủy gói tập thành công. Hội viên hiện có thể đăng ký gói tập mới.', 'success', 'mdi-check-circle')
+        } else {
+          showAlert('Lỗi', res.message || res.Message || 'Thao tác thất bại', 'error', 'mdi-alert')
+        }
+      } catch (e) { console.error(e) }
+    }
+  )
+}
+
+const goToPayment = (item) => {
+  const subId = item.id || item.Id
+  const mId = member.value.id || member.value.Id
+  router.push({ 
+    path: '/billing', 
+    query: { memberId: mId, subId: subId } 
+  })
 }
 
 const openEdit = () => {
   editDialog.value = true
+}
+
+const showAlert = (title, message, color = 'primary', icon = 'mdi-information-outline') => {
+  uiStore.showAlert(message, title, color, icon)
 }
 
 onMounted(loadMember)

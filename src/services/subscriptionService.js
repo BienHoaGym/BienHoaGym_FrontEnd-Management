@@ -26,13 +26,8 @@ export const subscriptionService = {
     const response = await api.put(`/Subscriptions/${id}/activate`)
     return response.data
   },
-  
-  // --- SỬA LỖI Ở ĐÂY ---
   async cancel(id, reason) {
-    // Backend yêu cầu Body là object: { "reason": "Lý do hủy..." }
-    // Axios sẽ tự động serialize object này thành JSON
     const payload = { reason: reason } 
-    
     const response = await api.put(`/Subscriptions/${id}/cancel`, payload)
     return response.data
   },
@@ -40,8 +35,14 @@ export const subscriptionService = {
     const response = await api.post(`/Subscriptions/${id}/renew`, { packageId })
     return response.data
   },
-  async pause(id) {
-    const response = await api.put(`/Subscriptions/${id}/pause`)
+  async pause(id, durationDays = null) {
+    const response = await api.put(`/Subscriptions/${id}/pause`, null, { 
+      params: { durationDays } 
+    })
+    return response.data
+  },
+  async resume(id) {
+    const response = await api.put(`/Subscriptions/${id}/resume`)
     return response.data
   }
 }
