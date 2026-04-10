@@ -72,7 +72,8 @@
 
         <template #[`item.actions`]="{ item }">
           <div class="d-flex justify-end gap-1">
-            <v-btn icon="mdi-pencil" variant="text" size="small" color="primary" @click="openEdit(item)"></v-btn>
+            <v-btn icon="mdi-account-details-outline" variant="text" size="small" color="info" :to="{ name: 'StaffDetail', params: { id: item.id } }" title="Xem hồ sơ nhân sự"></v-btn>
+            <v-btn icon="mdi-pencil" variant="text" size="small" color="primary" @click="openEdit(item)" title="Chỉnh sửa"></v-btn>
           </div>
         </template>
       </v-data-table>
@@ -170,6 +171,75 @@
                 </v-row>
               </v-col>
 
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.identityNumber"
+                  label="Số CCCD/CMND"
+                  variant="outlined"
+                  rounded="lg"
+                  density="comfortable"
+                  placeholder="038..."
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-model="form.gender"
+                  :items="['Nam', 'Nữ', 'Khác']"
+                  label="Giới tính"
+                  variant="outlined"
+                  rounded="lg"
+                  density="comfortable"
+                ></v-select>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.birthDate"
+                  label="Ngày sinh"
+                  type="date"
+                  variant="outlined"
+                  rounded="lg"
+                  density="comfortable"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.hireDate"
+                  label="Ngày tuyển dụng"
+                  type="date"
+                  variant="outlined"
+                  rounded="lg"
+                  density="comfortable"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="form.address"
+                  label="Địa chỉ thường trú"
+                  variant="outlined"
+                  rounded="lg"
+                  density="comfortable"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.bankName"
+                  label="Tên ngân hàng"
+                  variant="outlined"
+                  rounded="lg"
+                  density="comfortable"
+                  placeholder="Vietcombank, MB..."
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="form.bankCardNumber"
+                  label="Số tài khoản ngân hàng"
+                  variant="outlined"
+                  rounded="lg"
+                  density="comfortable"
+                ></v-text-field>
+              </v-col>
+
               <v-col v-if="isEdit" cols="12">
                 <v-switch v-model="form.isActive" label="Trạng thái hoạt động" color="success" inset density="compact"></v-switch>
               </v-col>
@@ -192,9 +262,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { userService } from '@/services/userService'
 import { roleService } from '@/services/roleService'
+
+const route = useRoute()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -206,10 +279,20 @@ const snack = ref({ show: false, message: '', color: 'success' })
 
 const formDialog = ref(false)
 const isEdit = ref(false)
-const form = ref({
+const defaultForm = {
   id: '', username: '', password: '', fullName: '', email: '', phoneNumber: '',
-  roleIds: [], isActive: true, specialization: '', experienceYears: 0, salary: 0
-})
+  roleIds: [], isActive: true, specialization: '', experienceYears: 0, salary: 0,
+  identityNumber: '', address: '', birthDate: null, gender: 'Nam', hireDate: null,
+  bankCardNumber: '', bankName: ''
+}
+const form = ref({ ...defaultForm })
+
+// Helper for date formatting for input type="date"
+const formatDateForInput = (dateString) => {
+  if (!dateString) return null
+  const date = new Date(dateString)
+  return date.toISOString().split('T')[0]
+}
 
 const headers = [
   { title: 'Nhân viên / Username', key: 'fullName' },
@@ -244,23 +327,30 @@ const fetchData = async () => {
   } finally { loading.value = false }
 }
 
-onMounted(() => {
-  fetchData()
-  fetchRoles()
+onMounted(async () => {
+  await fetchData()
+  await fetchRoles()
+  
+  // Kiểm tra nếu có query edit thì mở dialog Edit ngay
+  if (route.query.edit) {
+    const item = staff.value.find(s => s.id === route.query.edit)
+    if (item) openEdit(item)
+  }
 })
 
 const openCreate = () => {
   isEdit.value = false
-  form.value = {
-    username: '', password: '', fullName: '', email: '', phoneNumber: '',
-    roleIds: [], isActive: true, specialization: '', experienceYears: 0, salary: 0
-  }
+  form.value = { ...defaultForm }
   formDialog.value = true
 }
 
 const openEdit = (item) => {
   isEdit.value = true
-  form.value = { ...item }
+  form.value = { 
+    ...item,
+    birthDate: formatDateForInput(item.birthDate),
+    hireDate: formatDateForInput(item.hireDate)
+  }
   formDialog.value = true
 }
 

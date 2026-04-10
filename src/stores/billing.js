@@ -53,6 +53,14 @@ export const useBillingStore = defineStore('billing', {
       } catch (e) {
         return { success: false, message: 'Failed to create product' }
       } finally { this.saving = false }
+    },
+    async downloadPdf(id) {
+      try {
+        return await billingService.downloadInvoicePdf(id)
+      } catch (e) {
+        console.error('Download PDF error:', e)
+        return false
+      }
     }
   }
 })

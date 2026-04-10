@@ -221,8 +221,9 @@
               {{ formatDate(item.createdAt) }}
             </template>
             <template #[`item.actions`]="{ item }">
-              <v-btn icon="mdi-eye-outline" variant="text" color="primary" @click="viewInvoice(item)"></v-btn>
-              <v-btn icon="mdi-printer-outline" variant="text" @click="printInvoice(item)"></v-btn>
+              <v-btn icon="mdi-eye-outline" variant="text" color="primary" @click="viewInvoice(item)" title="Xem chi tiết"></v-btn>
+              <v-btn icon="mdi-file-pdf-box" variant="text" color="error" @click="exportInvoicePdf(item)" title="Xuất PDF"></v-btn>
+              <v-btn icon="mdi-printer-outline" variant="text" @click="printInvoice(item)" title="In nhanh"></v-btn>
             </template>
           </v-data-table>
         </v-card>
@@ -249,6 +250,9 @@
             <div class="text-right">
               <div class="text-caption text-grey">Ngày lập</div>
               <div class="font-weight-bold">{{ formatDateShort(selectedInvoice?.createdAt) }}</div>
+              <div v-if="selectedInvoice?.createdByUserName" class="text-caption mt-1">
+                NV: <span class="font-weight-bold">{{ selectedInvoice?.createdByUserName }}</span>
+              </div>
             </div>
           </div>
 
@@ -295,6 +299,7 @@
         <v-divider />
         <v-card-actions class="pa-4 bg-grey-lighten-4 no-print">
           <v-spacer />
+          <v-btn variant="elevated" color="error" prepend-icon="mdi-file-pdf-box" @click="exportCurrentInvoicePdf">Xuất file PDF</v-btn>
           <v-btn variant="tonal" color="primary" prepend-icon="mdi-printer" @click="printCurrentInvoice">In hóa đơn</v-btn>
           <v-btn variant="text" @click="invoiceDialog = false">Đóng</v-btn>
         </v-card-actions>
@@ -347,6 +352,7 @@ const invoiceHeaders = [
   { title: 'Hội viên', key: 'memberName' },
   { title: 'Tổng cộng', key: 'finalAmount' },
   { title: 'PTTT', key: 'paymentMethod' },
+  { title: 'Nhân viên', key: 'createdByUserName' },
   { title: 'Ngày lập', key: 'createdAt' },
   { title: 'Thao tác', key: 'actions', sortable: false }
 ]
@@ -520,10 +526,11 @@ const handleCheckout = async () => {
   }
   
   const res = await billingStore.createInvoice(payload)
-  if (res.success || res.Success) {
-    showSnack('Thanh toán thành công!')
-    selectedInvoice.value = res.data || res.Data
-    invoiceDialog.value = true
+    if (res.success || res.Success) {
+      showSnack('Thanh toán thành công!')
+      selectedInvoice.value = res.data || res.Data
+      
+      invoiceDialog.value = true
     cart.value = []
     discount.value = 0
     selectedMember.value = null
@@ -549,6 +556,34 @@ const viewInvoice = (invoice) => {
 
 const printCurrentInvoice = () => {
   window.print()
+}
+
+const exportInvoicePdf = async (invoice) => {
+  const id = invoice.id || invoice.Id
+  if (!id) return
+  
+  showSnack('Đang khởi tạo tệp PDF...', 'info')
+  const success = await billingStore.downloadPdf(id)
+  if (success) {
+    showSnack('Tải hóa đơn thành công!')
+  } else {
+    showSnack('Lỗi khi xuất PDF', 'error')
+  }
+}
+
+const exportCurrentInvoicePdf = () => {
+  if (selectedInvoice.value) {
+    exportInvoicePdf(selectedInvoice.value)
+  }
+}
+
+const printInvoice = (invoice) => {
+  selectedInvoice.value = invoice
+  invoiceDialog.value = true
+  // Wait for dialog to open then print
+  setTimeout(() => {
+    window.print()
+  }, 500)
 }
 
 // Helpers

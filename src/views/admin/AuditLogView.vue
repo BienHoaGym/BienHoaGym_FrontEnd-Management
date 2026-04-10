@@ -93,17 +93,43 @@
             />
           </v-col>
           <v-col cols="12" md="2">
-            <v-text-field
-              v-model="filters.dateRange"
-              label="Thời gian"
-              prepend-inner-icon="mdi-calendar-range"
-              variant="outlined"
-              bg-color="white"
-              density="comfortable"
-              hide-details
-              readonly
-              rounded="lg"
-            />
+            <v-menu
+              v-model="dateMenu"
+              :close-on-content-click="false"
+              transition="scale-transition"
+              offset-y
+              min-width="auto"
+            >
+              <template v-slot:activator="{ props }">
+                <v-text-field
+                  v-bind="props"
+                  v-model="formattedDateRange"
+                  label="Thời gian"
+                  prepend-inner-icon="mdi-calendar-range"
+                  variant="outlined"
+                  bg-color="white"
+                  density="comfortable"
+                  hide-details
+                  readonly
+                  rounded="lg"
+                  class="cursor-pointer"
+                />
+              </template>
+              <v-date-picker
+                v-model="selectedDate"
+                color="primary"
+                @update:model-value="onDateSelected"
+                hide-header
+              >
+                <template #actions>
+                  <v-btn variant="text" color="primary" @click="setToday">Hôm nay</v-btn>
+                  <v-btn variant="text" color="secondary" @click="setYesterday">Hôm qua</v-btn>
+                  <v-btn variant="text" color="grey" @click="clearDateFilter">Xóa lọc</v-btn>
+                  <v-spacer></v-spacer>
+                  <v-btn variant="text" @click="dateMenu = false">Đóng</v-btn>
+                </template>
+              </v-date-picker>
+            </v-menu>
           </v-col>
         </v-row>
       </div>
@@ -200,7 +226,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useAuditLog } from '@/composables/useAuditLog'
 import AuditLogStats from '@/components/admin/AuditLogStats.vue'
 import AuditLogDetailDialog from '@/components/admin/AuditLogDetailDialog.vue'
@@ -222,11 +248,28 @@ const loadingExport = ref(false)
 const detailDialog = ref(false)
 const selectedLog = ref(null)
 
+const dateMenu = ref(false)
+const selectedDate = ref(new Date())
+
 const filters = reactive({
-  dateRange: 'Hôm nay',
+  fromDate: null,
+  toDate: null,
   userId: null,
   action: null,
   severity: null
+})
+
+const formattedDateRange = computed(() => {
+  if (!filters.fromDate && !filters.toDate) return 'Tất cả thời gian'
+  const d = new Date(filters.fromDate)
+  const today = new Date()
+  if (d.toDateString() === today.toDateString()) return 'Hôm nay'
+  
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'Hôm qua'
+  
+  return d.toLocaleDateString('vi-VN')
 })
 
 // --- Options Maps ---
@@ -243,11 +286,63 @@ const headers = [
 ]
 
 // --- Watchers & Debounced Loading ---
-const debouncedLoad = debounce(() => loadLogs(search.value, filters), 500)
+const debouncedLoad = debounce(() => {
+  pagination.value.page = 1 // Reset về trang 1 khi lọc
+  loadLogs(search.value, filters)
+}, 500)
 
 watch([filters, search], () => debouncedLoad(), { deep: true })
 
 // --- Methods/Helpers ---
+const onDateSelected = (val) => {
+  let date = val
+  if (Array.isArray(val)) date = val[0]
+  
+  if (date) {
+    const d = new Date(date)
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0)
+    const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
+    
+    filters.fromDate = start.toISOString()
+    filters.toDate = end.toISOString()
+    dateMenu.value = false
+    
+    // Thực thi load ngay lập tức không cần debounce cho date
+    pagination.value.page = 1
+    loadLogs(search.value, filters)
+  }
+}
+
+const clearDateFilter = () => {
+  filters.fromDate = null
+  filters.toDate = null
+  selectedDate.value = null
+  dateMenu.value = false
+}
+
+const setToday = () => {
+  const d = new Date()
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0)
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
+  
+  filters.fromDate = start.toISOString()
+  filters.toDate = end.toISOString()
+  selectedDate.value = d
+  dateMenu.value = false
+}
+
+const setYesterday = () => {
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0)
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
+  
+  filters.fromDate = start.toISOString()
+  filters.toDate = end.toISOString()
+  selectedDate.value = d
+  dateMenu.value = false
+}
+
 const formatTimeOnly = (date) => date ? new Date(date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'
 const formatDateOnly = (date) => date ? new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : ''
 
@@ -321,7 +416,9 @@ const exportLogs = () => {
     }, 1000)
 }
 
-onMounted(() => loadLogs(search.value, filters))
+onMounted(() => {
+  setToday() // setToday sẽ trigger watch và tự động loadLogs
+})
 </script>
 
 <style scoped>

@@ -88,7 +88,7 @@ const routes = [
       {
         path: 'staff/:id',
         name: 'StaffDetail',
-        component: () => import('@/views/trainers/TrainerDetailView.vue'),
+        component: () => import('@/views/settings/StaffDetailView.vue'),
         meta: { permission: 'settings.manage', title: 'Chi tiết Nhân viên' }
       },
       {
@@ -143,7 +143,7 @@ const routes = [
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/profile/ProfileView.vue'),
-        meta: { title: 'Hồ sơ cá nhân' } 
+        meta: { title: 'Hồ sơ cá nhân' }
       },
       {
         path: 'roles',
@@ -195,15 +195,15 @@ const router = createRouter({
 function getFirstAuthorizedRoute(authStore, routes) {
   // Check main routes (under DefaultLayout which is index 1 in our routes array)
   const mainRoutes = routes.find(r => r.path === '/')?.children || []
-  
+
   for (const route of mainRoutes) {
     if (route.path === '' || route.path === 'dashboard') continue // Skip redirect or dashboard (already checked or recursive)
-    
+
     if (!route.meta?.permission || authStore.hasPermission(route.meta.permission)) {
       return { name: route.name }
     }
   }
-  
+
   return { name: 'Profile' } // Fallback to Profile which everyone has access to
 }
 
@@ -250,15 +250,15 @@ router.beforeEach(async (to, from, next) => {
   // D. Check Permissions
   if (requiresAuth && to.meta.permission) {
     const hasPerm = authStore.hasPermission(to.meta.permission)
-    
+
     if (!hasPerm) {
-       // If forbidden, and it was the dashboard, go to first authorized
-       if (to.name === 'Dashboard') {
-         next(getFirstAuthorizedRoute(authStore, routes))
-       } else {
-         next({ name: 'Unauthorized' })
-       }
-       return
+      // If forbidden, and it was the dashboard, go to first authorized
+      if (to.name === 'Dashboard') {
+        next(getFirstAuthorizedRoute(authStore, routes))
+      } else {
+        next({ name: 'Unauthorized' })
+      }
+      return
     }
   }
 

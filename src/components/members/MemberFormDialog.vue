@@ -148,6 +148,36 @@
         </v-btn>
       </v-card-actions>
     </v-card>
+
+    <!-- Cửa sổ thông báo chính giữa màn hình (Dialog) -->
+    <v-dialog v-model="snackbar.show" max-width="400" persistent>
+      <v-card class="text-center pa-6 rounded-xl">
+        <v-card-text>
+          <v-icon
+            :icon="snackbar.color === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle'"
+            :color="snackbar.color"
+            size="80"
+            class="mb-4"
+          ></v-icon>
+          <div class="text-h5 font-weight-bold mb-2">
+            {{ snackbar.color === 'success' ? 'Thành công!' : 'Thông báo lỗi' }}
+          </div>
+          <div class="text-body-1 text-medium-emphasis mb-6">
+            {{ snackbar.message }}
+          </div>
+          <v-btn
+            :color="snackbar.color"
+            size="large"
+            block
+            rounded="pill"
+            elevation="4"
+            @click="snackbar.show = false"
+          >
+            Đóng
+          </v-btn>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-dialog>
 </template>
 
@@ -199,6 +229,21 @@ const rules = {
   maxLength: (max) => (v) => !v || v.length <= max || `Tối đa ${max} ký tự`,
 }
 
+// State cho thông báo Premium
+const snackbar = ref({
+  show: false,
+  message: '',
+  color: 'success'
+})
+
+const showMessage = (message, color = 'success') => {
+  snackbar.value = {
+    show: true,
+    message,
+    color
+  }
+}
+
 const loadMember = async (id) => {
   loadingData.value = true
   try {
@@ -238,11 +283,32 @@ const handleSubmit = async () => {
     }
 
     if (response.success) {
-      emit('saved', response.data)
-      close()
+      showMessage(isEdit.value ? 'Cập nhật hội viên thành công' : 'Thêm hội viên thành công', 'success')
+      setTimeout(() => {
+        emit('saved', response.data)
+        close()
+      }, 1000)
+    } else {
+      showMessage(response.message || 'Có lỗi xảy ra', 'error')
     }
   } catch (err) {
     console.error('Save failed:', err)
+    let errorMsg = 'Lỗi kết nối máy chủ'
+    
+    if (err.response?.data) {
+      const data = err.response.data
+      if (data.message) {
+        errorMsg = data.message
+      } 
+      else if (data.errors) {
+        errorMsg = Object.values(data.errors).flat().join('\n')
+      }
+      else if (data.title) {
+        errorMsg = data.title
+      }
+    }
+    
+    showMessage(errorMsg, 'error')
   } finally {
     saving.value = false
   }

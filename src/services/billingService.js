@@ -20,5 +20,18 @@ export const billingService = {
   async createInvoice(data) {
     const response = await api.post('/Billing/invoices', data)
     return response.data
+  },
+  async downloadInvoicePdf(id) {
+    const response = await api.get(`/Billing/invoices/${id}/pdf`, {
+      responseType: 'blob'
+    })
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `HoaDon-${id}.pdf`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    return true
   }
 }
