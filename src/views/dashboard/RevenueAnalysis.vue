@@ -226,12 +226,16 @@ const topContributorsOptions = computed(() => ({
 }))
 
 // ⏰ HOURLY CHART (Simulated for Insight)
-const hourlyChartSeries = [{ name: 'Lượng khách/Doanh thu', data: [15, 8, 45, 85, 30] }]
-const hourlyChartOptions = {
+const hourlyChartSeries = computed(() => [{ 
+  name: 'Doanh thu', 
+  data: (reportData.value.revenueByHour || []).map(x => x.revenue) 
+}])
+const hourlyChartOptions = computed(() => ({
   chart: { toolbar: { show: false } },
-  xaxis: { categories: ['Sáng sớm', 'Trưa', 'Chiều tối (Peak)', 'Tối muộn', 'Khác'] },
-  colors: ['#f59e0b']
-}
+  xaxis: { categories: (reportData.value.revenueByHour || []).map(x => x.hour) },
+  colors: ['#f59e0b'],
+  yaxis: { labels: { formatter: v => (v/1000).toFixed(0) + 'k' } }
+}))
 
 // Support Functions
 const months = Array.from({ length: 12 }, (_, i) => ({ title: `Tháng ${i + 1}`, value: i + 1 }))
