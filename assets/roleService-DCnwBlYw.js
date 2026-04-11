@@ -1,1 +1,0 @@
-import{i as e}from"./router-DVfAUPZl.js";var t={async getAll(){return(await e.get(`/Roles`)).data},async getById(t){return(await e.get(`/Roles/${t}`)).data},async create(t){return(await e.post(`/Roles`,t)).data},async update(t,n){return(await e.put(`/Roles/${t}`,n)).data},async delete(t){return(await e.delete(`/Roles/${t}`)).data}};export{t};
