@@ -281,6 +281,17 @@
           <v-tab value="equipments"><v-icon start>mdi-dumbbell</v-icon> Thiết bị ({{ suppliedEquipments.length }})</v-tab>
         </v-tabs>
 
+        <div v-if="detailsTab === 'history'" class="bg-grey-lighten-3 pa-2 d-flex justify-between align-center border-b">
+           <div class="ml-4">
+             <span class="text-caption text-grey-darken-1 font-weight-bold uppercase">Tổng nợ: </span>
+             <span class="text-subtitle-2 font-weight-black text-error">{{ formatCurrency(selectedProvider?.totalDebt || 0) }}</span>
+           </div>
+           <v-spacer />
+           <v-btn color="success" size="small" prepend-icon="mdi-cash-check" class="text-none font-weight-bold mr-2" rounded @click="openPayDebtDialog">
+              Thanh toán nợ
+           </v-btn>
+        </div>
+
         <v-divider />
 
         <v-card-text class="pa-0 bg-grey-lighten-4" style="height: 600px">
@@ -298,7 +309,15 @@
                   <div class="font-weight-medium">{{ new Date(item.date).toLocaleDateString('vi-VN') }}</div>
                 </template>
                 <template #[`item.totalAmount`]="{ item }">
-                  <div class="font-weight-black text-primary">{{ formatCurrency(item.totalAmount) }}</div>
+                  <div class="font-weight-black">{{ formatCurrency(item.totalAmount) }}</div>
+                </template>
+                <template #[`item.paidAmount`]="{ item }">
+                  <div class="font-weight-bold text-success">{{ formatCurrency(item.paidAmount) }}</div>
+                </template>
+                <template #[`item.debtAmount`]="{ item }">
+                  <div class="font-weight-bold" :class="item.debtAmount > 0 ? 'text-error' : 'text-grey'">
+                    {{ formatCurrency(item.debtAmount) }}
+                  </div>
                 </template>
                 <template #[`item.status`]="{ item }">
                    <v-chip size="x-small" color="success" class="font-weight-bold" variant="flat">Hoàn tất</v-chip>
@@ -346,6 +365,94 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- Pay Debt Dialog -->
+    <v-dialog v-model="payDebtDialog" max-width="600px" persistent>
+      <v-card rounded="xl" class="elevation-24">
+        <v-toolbar color="success" density="comfortable" flat>
+          <v-toolbar-title class="font-weight-bold px-4">Thanh toán nợ đối tác</v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="text" @click="payDebtDialog = false" class="mr-2"></v-btn>
+        </v-toolbar>
+
+        <v-card-text class="pa-6">
+          <div class="mb-6 pa-4 bg-error-lighten-5 rounded-lg border-error border d-flex align-center gap-4">
+             <v-avatar color="error" variant="tonal" size="48">
+                <v-icon color="error">mdi-cash-multiple</v-icon>
+             </v-avatar>
+             <div>
+                <div class="text-h5 font-weight-black text-error">{{ formatCurrency(selectedProvider?.totalDebt || 0) }}</div>
+                <div class="text-caption text-grey-darken-1 font-weight-bold">TỔNG DƯ NỢ HIỆN TẠI</div>
+             </div>
+          </div>
+          
+          <v-form ref="payDebtForm" v-model="payDebtValid">
+            <v-select
+              v-model="debtPaymentItem.transactionId"
+              :items="outstandingTransactions"
+              item-title="title"
+              item-value="id"
+              label="Chọn phiếu nhập hàng/thiết bị để trả nợ"
+              variant="outlined"
+              density="comfortable"
+              clearable
+              persistent-hint
+              class="mb-4"
+              hint="Hệ thống sẽ tự động đối soát giảm nợ cho phiếu được chọn"
+            ></v-select>
+
+            <v-text-field
+              v-model.number="debtPaymentItem.amount"
+              label="Số tiền thanh toán ngay*"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-currency-usd"
+              :rules="[v => !!v || 'Phải nhập số tiền', v => v > 0 || 'Số tiền phải > 0']"
+              class="mb-2"
+            ></v-text-field>
+
+            <v-row dense>
+              <v-col cols="12" sm="6">
+                <v-select
+                  v-model="debtPaymentItem.paymentMethod"
+                  :items="['Tiền mặt', 'Chuyển khoản ngân hàng']"
+                  label="Phương thức thanh toán*"
+                  variant="outlined"
+                  density="comfortable"
+                ></v-select>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="debtPaymentItem.referenceNumber"
+                  label="Mã chứng từ / Số hiệu lệnh chi"
+                  variant="outlined"
+                  density="comfortable"
+                  placeholder="VD: PC-001"
+                ></v-text-field>
+              </v-col>
+            </v-row>
+
+            <v-textarea
+              v-model="debtPaymentItem.note"
+              label="Ghi chú thanh toán"
+              variant="outlined"
+              density="comfortable"
+              rows="2"
+              placeholder="VD: Trả đợt 1 tiền máy chạy bộ"
+            ></v-textarea>
+          </v-form>
+        </v-card-text>
+
+        <v-card-actions class="pa-6 pt-0">
+          <v-spacer></v-spacer>
+          <v-btn variant="text" color="grey-darken-1" @click="payDebtDialog = false" class="text-none px-6 rounded-lg font-weight-bold">Hủy bỏ</v-btn>
+          <v-btn color="success" class="text-none px-8 font-weight-black rounded-lg" elevation="4" :loading="paying" @click="submitDebtPayment">
+            Xác nhận chi tiền
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -368,9 +475,11 @@ const headers = [
  
 const historyHeaders = [
   { title: 'Mã GD', key: 'transactionCode' },
-  { title: 'Loại', key: 'type' },
   { title: 'Ngày', key: 'date' },
+  { title: 'Nội dung', key: 'note' },
   { title: 'Giá trị', key: 'totalAmount', align: 'end' },
+  { title: 'Đã trả', key: 'paidAmount', align: 'end' },
+  { title: 'Còn nợ', key: 'debtAmount', align: 'end' },
   { title: 'Trạng thái', key: 'status', align: 'center' }
 ]
 
@@ -408,8 +517,23 @@ const editedItem = ref({
   bankName: '',
   supplyType: '',
   note: '',
-  isActive: true
+  isActive: true,
+  totalDebt: 0
 })
+
+const payDebtDialog = ref(false)
+const payDebtValid = ref(false)
+const payDebtForm = ref(null)
+const paying = ref(false)
+const debtPaymentItem = ref({
+  transactionId: null,
+  amount: 0,
+  paymentMethod: 'Chuyển khoản ngân hàng',
+  referenceNumber: '',
+  note: ''
+})
+
+const outstandingTransactions = ref([])
 
 const defaultItem = {
   name: '',
@@ -526,6 +650,66 @@ const confirmDelete = async (item) => {
       uiStore.showError(error.response?.data?.message || 'Không thể xóa nhà cung cấp này', 'Lỗi xóa')
     }
   }
+}
+
+const openPayDebtDialog = () => {
+    debtPaymentItem.value = {
+        transactionId: null,
+        amount: selectedProvider.value?.totalDebt || 0,
+        paymentMethod: 'Chuyển khoản ngân hàng',
+        referenceNumber: '',
+        note: `Thanh toán nợ cho ${selectedProvider.value?.name}`
+    }
+    
+    // Tổng hợp các giao dịch còn nợ để chọn
+    outstandingTransactions.value = transactionHistory.value
+        .filter(t => t.debtAmount > 0)
+        .map(t => ({
+            id: t.id,
+            title: `${t.transactionCode} - ${t.note} (Còn nợ: ${formatCurrency(t.debtAmount)})`,
+            originalId: t.id,
+            type: t.transactionCode.startsWith('STK') ? 'stock' : 'equipment'
+        }))
+        
+    payDebtDialog.value = true
+}
+
+const submitDebtPayment = async () => {
+    const { valid: isValid } = await payDebtForm.value.validate()
+    if (!isValid) return
+    
+    paying.value = true
+    try {
+        const selectedTx = outstandingTransactions.value.find(t => t.id === debtPaymentItem.value.transactionId)
+        
+        const payload = {
+            providerId: selectedProvider.value.id,
+            amount: debtPaymentItem.value.amount,
+            paymentMethod: debtPaymentItem.value.paymentMethod,
+            note: debtPaymentItem.value.note,
+            referenceNumber: debtPaymentItem.value.referenceNumber,
+            stockTransactionId: selectedTx?.type === 'stock' ? selectedTx.id : null,
+            equipmentTransactionId: selectedTx?.type === 'equipment' ? selectedTx.id : null
+        }
+        
+        await providerService.payDebt(payload)
+        
+        uiStore.showSuccess('Đã thực hiện thanh toán nợ thành công', 'Thanh toán hoàn tất')
+        payDebtDialog.value = false
+        
+        // Refresh data
+        await fetchProviders()
+        if (selectedProvider.value) {
+            const updated = providers.value.find(p => p.id === selectedProvider.value.id)
+            if (updated) selectedProvider.value = updated
+            await viewDetails(selectedProvider.value)
+        }
+    } catch (error) {
+        console.error('Error paying debt:', error)
+        uiStore.showError(error.response?.data?.message || 'Có lỗi khi thực hiện thanh toán', 'Lỗi thanh toán')
+    } finally {
+        paying.value = false
+    }
 }
 
 onMounted(fetchProviders)

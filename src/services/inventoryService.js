@@ -44,5 +44,25 @@ export const inventoryService = {
   async createInternalSupply(data) {
     const response = await api.post('/Inventory/internal-supply', data)
     return response.data
+  },
+  async getAudits() {
+    const response = await api.get('/Inventory/audits')
+    return response.data
+  },
+  async createAudit(warehouseId, note) {
+    const response = await api.post('/Inventory/audits', null, { params: { warehouseId, note } })
+    return response.data
+  },
+  async updateAuditDetail(auditId, productId, actualQuantity, reason) {
+    const response = await api.put(`/Inventory/audits/${auditId}/detail`, null, { params: { productId, actualQuantity, reason } })
+    return response.data
+  },
+  async approveAudit(auditId) {
+    const response = await api.post(`/Inventory/audits/${auditId}/approve`)
+    return response.data
+  },
+  async getTurnoverReport() {
+    const response = await api.get('/Inventory/turnover')
+    return response.data
   }
 }

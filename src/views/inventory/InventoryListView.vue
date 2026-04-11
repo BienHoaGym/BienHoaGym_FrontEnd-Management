@@ -52,9 +52,6 @@
         </v-toolbar-title>
         <v-spacer />
         <div class="d-flex align-center gap-2 px-2">
-          <v-btn color="deep-purple" variant="flat" prepend-icon="mdi-plus" @click="openSupplyDialog" class="rounded-lg mr-2">
-             Thêm vật tư mới
-           </v-btn>
           <v-btn color="primary" variant="flat" prepend-icon="mdi-import" @click="openTransactionDialog(1)" class="rounded-lg">
              Nhập kho
            </v-btn>
@@ -86,6 +83,12 @@
         </v-tab>
         <v-tab value="history">
           <v-icon start>mdi-history</v-icon> Lịch sử biến động
+        </v-tab>
+        <v-tab value="audit">
+          <v-icon start>mdi-file-check-outline</v-icon> Kiểm kê
+        </v-tab>
+        <v-tab value="reports">
+          <v-icon start>mdi-chart-box-outline</v-icon> Báo cáo chuyên sâu
         </v-tab>
       </v-tabs>
 
@@ -264,11 +267,68 @@
             </v-list>
           </v-card-text>
         </v-window-item>
+
+        <!-- Audit Tab -->
+        <v-window-item value="audit">
+          <v-card-text>
+            <div class="d-flex align-center mb-4">
+               <div class="text-subtitle-1 font-weight-bold">Danh sách phiếu kiểm kê</div>
+               <v-spacer/>
+               <v-btn color="primary" prepend-icon="mdi-plus" @click="startAudit">Tạo phiếu mới</v-btn>
+            </div>
+            <v-data-table :items="audits" :headers="auditHeaders" hover density="comfortable">
+               <template #[`item.status`]="{ item }">
+                  <v-chip :color="getAuditStatusColor(item.status)" size="small" variant="flat">
+                     {{ getAuditStatusName(item.status) }}
+                  </v-chip>
+               </template>
+               <template #[`item.auditDate`]="{ item }">
+                  {{ formatDateTime(item.auditDate) }}
+               </template>
+               <template #[`item.actions`]="{ item }">
+                  <v-btn v-if="item.status === 1" icon="mdi-pencil" variant="text" size="small" color="primary" @click="editAudit(item)"></v-btn>
+                  <v-btn v-else icon="mdi-eye" variant="text" size="small" color="grey" @click="viewAudit(item)"></v-btn>
+               </template>
+            </v-data-table>
+          </v-card-text>
+        </v-window-item>
+
+        <!-- Reports Tab -->
+        <v-window-item value="reports">
+          <v-card-text>
+            <v-row class="mb-4">
+               <v-col cols="12" md="4">
+                  <v-card variant="flat" border class="pa-4 bg-green-lighten-5">
+                     <div class="text-overline">Giá trị kho hiện tại</div>
+                     <div class="text-h5 font-weight-black text-success">{{ formatCurrency(totalStockValue) }}</div>
+                  </v-card>
+               </v-col>
+               <v-col cols="12" md="4">
+                  <v-card variant="flat" border class="pa-4 bg-red-lighten-5">
+                     <div class="text-overline">Hàng tồn động (>90 ngày)</div>
+                     <div class="text-h5 font-weight-black text-error">{{ deadStockCount }} mã hàng</div>
+                  </v-card>
+               </v-col>
+            </v-row>
+            <v-data-table :items="turnoverRepo" :headers="turnoverHeaders" hover density="compact">
+               <template #[`item.isDeadStock`]="{ item }">
+                  <v-chip v-if="item.isDeadStock" size="x-small" color="error" variant="flat">TỒN ĐỘNG</v-chip>
+                  <v-chip v-else size="x-small" color="success" variant="tonal">LUÂN CHUYỂN</v-chip>
+               </template>
+               <template #[`item.stockValue`]="{ item }">
+                  {{ formatCurrency(item.stockValue) }}
+               </template>
+               <template #[`item.lastTransactionDate`]="{ item }">
+                  {{ formatDateTime(item.lastTransactionDate) }}
+               </template>
+            </v-data-table>
+          </v-card-text>
+        </v-window-item>
       </v-window>
     </v-card>
 
     <!-- Transaction Dialog -->
-    <v-dialog v-model="txDialog" max-width="500">
+    <v-dialog v-model="txDialog" max-width="800">
       <v-card class="rounded-xl">
         <v-card-title class="pa-6 font-weight-bold" :class="getTxBg(txType)">
           {{ getTxTitle(txType) }}
@@ -290,44 +350,221 @@
               :rules="[v => !!v || 'Bắt buộc']"
             ></v-autocomplete>
 
+            <v-autocomplete
+              v-if="txType === 1"
+              v-model="transaction.providerId"
+              label="Nhà cung cấp (Đối tác)"
+              :items="providerOptions"
+              item-title="label"
+              item-value="id"
+              variant="outlined"
+              prepend-inner-icon="mdi-domain"
+              placeholder="Chọn nhà cung cấp nếu có"
+              clearable
+              class="mb-2"
+            ></v-autocomplete>
+
             <!-- Warehouse selection hidden for single-warehouse, will be set in logic -->
 
+            <v-row v-if="txType === 1">
+              <v-col cols="12" sm="6">
+                <!-- Unit display -->
+                <v-text-field
+                  :model-value="selectedProductInfo?.unit || 'Cái'"
+                  label="Đơn vị tính"
+                  variant="outlined"
+                  density="comfortable"
+                  readonly
+                  prepend-inner-icon="mdi-package-variant"
+                  bg-color="grey-lighten-4"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" sm="6" v-if="!transaction.isAsset">
+                <!-- Expiry Date -->
+                <v-text-field
+                  v-model="transaction.expiryDate"
+                  label="Hạn sử dụng"
+                  type="date"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-calendar-clock"
+                ></v-text-field>
+              </v-col>
+              
+              <!-- Equipment specific fields -->
+              <template v-if="transaction.isAsset">
+                <v-col cols="12" sm="6">
+                  <v-text-field
+                    v-model="transaction.serialNumber"
+                    label="Số Seri (S/N)"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-barcode-scan"
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-text-field
+                    v-model="transaction.warrantyExpiryDate"
+                    label="Hết hạn bảo hành"
+                    type="date"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-shield-check"
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-text-field
+                    v-model.number="transaction.maintenanceIntervalDays"
+                    label="Chu kỳ bảo trì (Ngày)"
+                    type="number"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-wrench-clock"
+                    suffix="ngày"
+                  ></v-text-field>
+                </v-col>
+              </template>
+            </v-row>
+
+            <v-divider class="my-4" />
+
             <v-row>
-              <v-col cols="6">
+              <v-col cols="12" sm="4">
                 <v-text-field
                   v-model.number="transaction.quantity"
                   label="Số lượng *"
                   type="number"
                   variant="outlined"
+                  density="comfortable"
                   :rules="[v => !!v || 'Bắt buộc', v => v > 0 || 'Số lượng > 0']"
                 ></v-text-field>
               </v-col>
-              <v-col cols="12">
+              <v-col cols="12" sm="5">
                 <v-text-field
                   v-model.number="transaction.unitPrice"
                   label="Đơn giá nhập *"
                   type="number"
                   variant="outlined"
+                  density="comfortable"
                   suffix="đ"
-                  :hint="selectedProductInfo ? `Giá vốn mặc định: ${formatCurrency(selectedProductInfo.costPrice)}` : ''"
-                  persistent-hint
-                  prepend-inner-icon="mdi-cash-multiple"
+                  prepend-inner-icon="mdi-cash"
                   color="success"
-                  class="mb-2"
                 ></v-text-field>
-                <v-alert v-if="txType === 1" density="compact" color="success" variant="tonal" class="text-caption mt-2 py-1 px-2 border" icon="mdi-information-outline">
-                    Giá nhập này sẽ dùng để tính lại <b>Giá bình quân</b> cho kho.
-                </v-alert>
+              </v-col>
+              <v-col cols="12" sm="3">
+                <v-text-field
+                  v-model.number="transaction.vatPercentage"
+                  label="VAT (%)"
+                  type="number"
+                  variant="outlined"
+                  density="comfortable"
+                  suffix="%"
+                ></v-text-field>
               </v-col>
             </v-row>
 
-            <v-text-field
-              v-model="transaction.referenceNumber"
-              label="Mã tham chiếu (Phiếu mua/hóa đơn)"
-              variant="outlined"
-              placeholder="e.g. PN-001"
-            ></v-text-field>
-            <v-textarea v-model="transaction.note" label="Ghi chú" variant="outlined" rows="2"></v-textarea>
+            <v-row v-if="txType === 1" class="ma-0 mb-4 bg-grey-lighten-4 rounded-lg pa-3 border-dashed">
+              <v-col cols="12" class="pa-1 d-flex justify-space-between align-center">
+                <span class="text-subtitle-2 grey--text">Tổng thanh toán (có VAT):</span>
+                <span class="text-h6 font-weight-bold text-primary">{{ formatCurrency(txTotalValue) }}</span>
+              </v-col>
+              <v-col cols="12" class="pa-1 text-caption text-grey text-right">
+                Thuế VAT: {{ formatCurrency(txVatAmount) }}
+              </v-col>
+            </v-row>
+
+            <v-row>
+               <v-col cols="12" sm="6">
+                  <v-text-field
+                    v-model="transaction.transactionDate"
+                    label="Ngày nhập thực tế"
+                    type="date"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-calendar-edit"
+                  ></v-text-field>
+               </v-col>
+               <v-col cols="12" sm="6">
+                  <v-text-field
+                    v-model="transaction.referenceNumber"
+                    label="Số hóa đơn/Chứng từ"
+                    variant="outlined"
+                    density="comfortable"
+                    placeholder="e.g. PN-001"
+                  ></v-text-field>
+               </v-col>
+            </v-row>
+
+            <v-textarea v-model="transaction.note" label="Ghi chú nghiệp vụ" variant="outlined" rows="2" density="comfortable"></v-textarea>
+            
+            <div v-if="txType === 1" class="d-flex align-center gap-2 mb-4">
+              <input
+                type="file"
+                ref="fileInputRef"
+                accept="image/*"
+                style="display: none"
+                @change="handleFileChange"
+              />
+              <v-btn 
+                prepend-icon="mdi-camera" 
+                variant="tonal" 
+                color="info" 
+                size="small" 
+                class="text-none"
+                @click="triggerFileInput"
+              >
+                 {{ transaction.attachmentUrl ? 'Đã chọn ảnh' : 'Chụp chứng từ' }}
+              </v-btn>
+              <span class="text-caption text-grey">
+                {{ transaction.attachmentUrl ? 'File: ' + transaction.attachmentUrl : 'Đính kèm ảnh hóa đơn để đối soát' }}
+              </span>
+            </div>
+
+            <v-divider class="my-4" />
+            <div class="text-subtitle-1 font-weight-bold mb-3 text-primary d-flex align-center">
+              <v-icon start color="primary">mdi-credit-card-outline</v-icon>
+              THÔNG TIN THANH TOÁN & CÔNG NỢ
+            </div>
+            
+            <v-row>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model.number="transaction.paidAmount"
+                  label="Số tiền thanh toán ngay *"
+                  type="number"
+                  variant="outlined"
+                  density="comfortable"
+                  suffix="đ"
+                  prepend-inner-icon="mdi-cash-check"
+                  color="success"
+                  :rules="[v => v >= 0 || 'Không được âm']"
+                  @update:model-value="validatePaidAmount"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-select
+                  v-model="transaction.paymentMethod"
+                  label="Hình thức thanh toán"
+                  :items="['Tiền mặt', 'Chuyển khoản', 'Ví điện tử', 'Khác']"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-swap-horizontal"
+                ></v-select>
+              </v-col>
+              <v-col cols="12" sm="12" v-if="txTotalValue > transaction.paidAmount">
+                <v-text-field
+                  v-model="transaction.paymentDueDate"
+                  label="Hạn thanh toán phần còn lại (Công nợ)"
+                  type="date"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-calendar-alert"
+                  color="warning"
+                  persistent-hint
+                  :hint="`Số tiền ghi nợ: ${formatCurrency(txTotalValue - transaction.paidAmount)}`"
+                ></v-text-field>
+              </v-col>
+            </v-row>
           </v-form>
         </v-card-text>
         <v-card-actions class="pa-6 pt-0">
@@ -339,64 +576,47 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-    
-    <!-- New Internal Supply Dialog -->
-    <v-dialog v-model="supplyDialog" max-width="600">
-      <v-card class="rounded-xl">
-        <v-card-title class="pa-6 font-weight-bold bg-deep-purple text-white">
-          <v-icon start>mdi-plus-circle</v-icon> THÊM VẬT TƯ NỘI BỘ MỚI
-        </v-card-title>
-        <v-card-text class="pa-6">
-          <v-form ref="supplyFormRef">
-            <v-text-field
-              v-model="newSupply.name"
-              label="Tên vật tư *"
-              variant="outlined"
-              :rules="[v => !!v || 'Bắt buộc']"
-              placeholder="e.g. Khăn tắm, Xà phòng, Dầu nhớt..."
-            ></v-text-field>
-            
-            <v-row>
-              <v-col cols="6">
-                <v-text-field v-model="newSupply.unit" label="Đơn vị tính *" variant="outlined" :rules="[v => !!v || 'Bắt buộc']"></v-text-field>
-              </v-col>
-              <v-col cols="6">
-                <v-text-field v-model.number="newSupply.costPrice" label="Giá nhập/vốn" type="number" variant="outlined" suffix="đ"></v-text-field>
-              </v-col>
-            </v-row>
-
-            <v-divider class="my-4"/>
-            <div class="text-subtitle-2 mb-2 text-primary font-weight-bold italic">Nhập kho khởi tạo:</div>
-            
-            <v-row>
-              <v-col cols="12">
-                <v-text-field
-                  v-model.number="newSupply.initialQuantity"
-                  label="Số lượng nhập ban đầu"
-                  type="number"
-                  variant="outlined"
-                  hint="Nếu > 0, hệ thống sẽ tự động tạo phiếu nhập kho"
-                  persistent-hint
-                ></v-text-field>
-              </v-col>
-            </v-row>
-            
-            <v-textarea v-model="newSupply.description" label="Ghi chú mô tả" variant="outlined" rows="2" class="mt-4"></v-textarea>
-          </v-form>
-        </v-card-text>
-        <v-card-actions class="pa-6 pt-0">
-          <v-spacer />
-          <v-btn variant="text" @click="supplyDialog = false">Hủy</v-btn>
-          <v-btn color="deep-purple" variant="flat" @click="handleCreateSupply" class="px-6 rounded-lg">
-            Thành công & Lưu kho
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
 
     <v-snackbar v-model="snack.show" :color="snack.color">
       {{ snack.message }}
     </v-snackbar>
+
+    <!-- Audit Detail Entry Dialog -->
+    <v-dialog v-model="auditDetailDialog" max-width="900" persistent>
+      <v-card class="rounded-xl">
+        <v-card-title class="pa-6 font-weight-bold bg-primary text-white d-flex align-center">
+          <v-icon start>mdi-file-edit</v-icon> CHI TIẾT KIỂM KÊ
+          <v-spacer/>
+          <v-chip v-if="selectedAudit" color="white" variant="outlined">{{ selectedAudit?.warehouse?.name }}</v-chip>
+        </v-card-title>
+        <v-card-text class="pa-0">
+           <v-data-table :items="selectedAudit?.details || []" :headers="auditDetailHeaders" density="compact" height="400">
+              <template #[`item.productName`]="{ item }">
+                 {{ item.product?.name }}
+              </template>
+              <template #[`item.actualQuantity`]="{ item }">
+                 <v-text-field v-model.number="item.actualQuantity" density="compact" hide-details variant="underlined" type="number"
+                   @change="saveAuditDetail(item)"></v-text-field>
+              </template>
+              <template #[`item.difference`]="{ item }">
+                 <span :class="item.actualQuantity - item.systemQuantity < 0 ? 'text-error' : 'text-success'">
+                    {{ item.actualQuantity - item.systemQuantity }}
+                 </span>
+              </template>
+              <template #[`item.reason`]="{ item }">
+                 <v-text-field v-model="item.reason" density="compact" hide-details variant="underlined" placeholder="Lý do chênh lệch"
+                   @change="saveAuditDetail(item)"></v-text-field>
+              </template>
+           </v-data-table>
+        </v-card-text>
+        <v-card-actions class="pa-6 border-t bg-grey-lighten-5">
+          <v-btn variant="text" @click="auditDetailDialog = false">Hủy</v-btn>
+          <v-spacer />
+          <v-btn v-if="selectedAudit?.status === 1" color="success" variant="flat" prepend-icon="mdi-check-all" @click="confirmApproveAudit">Hoàn tất & Chốt kho</v-btn>
+          <v-btn v-else color="grey" variant="flat" disabled>Phiếu đã duyệt</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -406,6 +626,7 @@ import { useInventoryStore } from '@/stores/inventory'
 import { useBillingStore } from '@/stores/billing'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
+import providerService from '@/services/providerService'
 
 const inventoryStore = useInventoryStore()
 const billingStore = useBillingStore()
@@ -417,17 +638,72 @@ const search = ref('')
 const selectedWarehouseId = ref(null) // This will effectively be ignored or set to DEFAULT_WAREHOUSE_ID
 const includeAssets = ref(false)
 const txDialog = ref(false)
-const supplyDialog = ref(false)
 const txFormRef = ref(null)
-const supplyFormRef = ref(null)
+const fileInputRef = ref(null)
 const txType = ref(1) // 1: Import, 2: Export, 3: Adjustment, 4: Transfer, 7: InternalUse
 const snack = ref({ show: false, message: '', color: 'success' })
-const transaction = ref({ productId: null, quantity: 1, unitPrice: 0, note: '', referenceNumber: '', fromWarehouseId: null, toWarehouseId: null, isAsset: false })
-const newSupply = ref({ name: '', unit: 'Cái', costPrice: 0, initialQuantity: 0, description: '', warehouseId: DEFAULT_WAREHOUSE_ID })
+const providers = ref([])
+const transaction = ref({ 
+  productId: null, 
+  quantity: 1, 
+  unitPrice: 0, 
+  vatPercentage: 10, 
+  note: '', 
+  referenceNumber: '', 
+  fromWarehouseId: null, 
+  toWarehouseId: null, 
+  isAsset: false, 
+  providerId: null,
+  expiryDate: null,
+  transactionDate: new Date().toISOString().substr(0, 10),
+  serialNumber: '',
+  warrantyExpiryDate: null,
+  maintenanceIntervalDays: 90,
+  attachmentUrl: '',
+  paidAmount: 0,
+  paymentMethod: 'Tiền mặt',
+  paymentDueDate: null
+})
 const stockAlerts = ref([])
+const audits = ref([])
+const selectedAudit = ref(null)
+const auditDetailDialog = ref(false)
+const turnoverRepo = ref([])
+const auditHeaders = [
+  { title: 'Ngày kiểm kê', key: 'auditDate' },
+  { title: 'Kho', key: 'warehouse.name' },
+  { title: 'Người thực hiện', key: 'performedBy' },
+  { title: 'Trạng thái', key: 'status', align: 'center' },
+  { title: 'Thao tác', key: 'actions', align: 'end' }
+]
+const auditDetailHeaders = [
+  { title: 'Sản phẩm', key: 'productName' },
+  { title: 'Hệ thống', key: 'systemQuantity', align: 'center' },
+  { title: 'Thực tế', key: 'actualQuantity', align: 'center' },
+  { title: 'Chênh lệch', key: 'difference', align: 'center' },
+  { title: 'Lý do & Ghi chú', key: 'reason' }
+]
+const turnoverHeaders = [
+  { title: 'Sản phẩm', key: 'name' },
+  { title: 'SKU', key: 'sku' },
+  { title: 'Tồn hiện tại', key: 'currentStock', align: 'center' },
+  { title: 'Giá trị tồn', key: 'stockValue', align: 'end' },
+  { title: 'Lần cuối giao dịch', key: 'lastTransactionDate' },
+  { title: 'Phân loại', key: 'isDeadStock', align: 'center' }
+]
+const totalStockValue = computed(() => turnoverRepo.value.reduce((acc, curr) => acc + curr.stockValue, 0))
+const deadStockCount = computed(() => turnoverRepo.value.filter(x => x.isDeadStock).length)
 
 const outOfStockCount = computed(() => stockAlerts.value.filter(a => a.quantity === 0).length)
 const lowStockCount = computed(() => stockAlerts.value.filter(a => a.quantity > 0).length)
+
+const txTotalValue = computed(() => {
+  const base = transaction.value.quantity * transaction.value.unitPrice
+  return base + (base * (transaction.value.vatPercentage / 100))
+})
+const txVatAmount = computed(() => {
+  return (transaction.value.quantity * transaction.value.unitPrice) * (transaction.value.vatPercentage / 100)
+})
 
 const DEFAULT_WAREHOUSE_ID = '10000000-0000-0000-0000-000000000001'
 
@@ -463,6 +739,13 @@ const productOptions = computed(() =>
 const assetOptions = computed(() => 
   equipmentStore.equipments.map(e => ({ id: e.id, label: e.name }))
 )
+const providerOptions = computed(() => {
+  const pId = selectedProductInfo.value?.providerId || selectedProductInfo.value?.ProviderId
+  if (pId) {
+    return providers.value.filter(p => p.id === pId).map(p => ({ id: p.id, label: p.name }))
+  }
+  return providers.value.map(p => ({ id: p.id, label: p.name }))
+})
 
 const selectedProductInfo = computed(() => {
   if (transaction.value.isAsset) {
@@ -480,6 +763,14 @@ watch(() => transaction.value.productId, (newId) => {
       : (selectedProductInfo.value.costPrice || selectedProductInfo.value.CostPrice || 0)
     
     transaction.value.unitPrice = defaultPrice
+    
+    // Auto-select provider if linked to product
+    const pId = selectedProductInfo.value.providerId || selectedProductInfo.value.ProviderId
+    if (pId) {
+      transaction.value.providerId = pId
+    } else {
+      transaction.value.providerId = null
+    }
   }
 })
 
@@ -517,7 +808,14 @@ const openTransactionDialog = (type, item = null) => {
     referenceNumber: '', 
     fromWarehouseId: item?.warehouseId || null, 
     toWarehouseId: null,
-    isAsset: isAsset
+    isAsset: isAsset,
+    providerId: item?.providerId || null,
+    vatPercentage: 10,
+    transactionDate: new Date().toISOString().substr(0, 10),
+    expiryDate: null,
+    serialNumber: '',
+    warrantyExpiryDate: null,
+    maintenanceIntervalDays: 90
   }
 
   // Auto-select the correct product/asset dropdown
@@ -528,25 +826,6 @@ const openTransactionDialog = (type, item = null) => {
   txDialog.value = true
 }
 
-const openSupplyDialog = () => {
-  newSupply.value = { name: '', unit: 'Cái', costPrice: 0, initialQuantity: 0, description: '', warehouseId: DEFAULT_WAREHOUSE_ID }
-  supplyDialog.value = true
-}
-
-const handleCreateSupply = async () => {
-  const { valid } = await supplyFormRef.value.validate()
-  if (!valid) return
-
-  const res = await inventoryStore.createInternalSupply(newSupply.value)
-  if (res.success) {
-    showSnack(res.message)
-    supplyDialog.value = false
-    inventoryStore.fetchInventories(selectedWarehouseId.value, includeAssets.value)
-    inventoryStore.fetchTransactions(null, selectedWarehouseId.value)
-  } else {
-    showSnack(res.message, 'error')
-  }
-}
 
 const handleTransaction = async () => {
   const { valid } = await txFormRef.value.validate()
@@ -581,6 +860,52 @@ const viewHistory = (item) => {
   inventoryStore.fetchTransactions(item.productId, item.warehouseId)
   currentTab.value = 'history'
 }
+
+// 🕵️ Audit Methods
+const startAudit = async () => {
+  const res = await inventoryStore.createStockAudit(DEFAULT_WAREHOUSE_ID, "Kiểm kê định kỳ");
+  if (res.success) {
+    selectedAudit.value = res.data;
+    auditDetailDialog.value = true;
+    loadAudits();
+  }
+}
+const loadAudits = async () => {
+  const res = await inventoryStore.fetchAudits();
+  if (res.success) audits.value = res.data;
+}
+const editAudit = (item) => {
+  selectedAudit.value = item;
+  auditDetailDialog.value = true;
+}
+const viewAudit = (item) => {
+  selectedAudit.value = item;
+  auditDetailDialog.value = true;
+}
+const saveAuditDetail = async (detail) => {
+  await inventoryStore.updateAuditDetail(selectedAudit.value.id, detail.productId, detail.actualQuantity, detail.reason);
+}
+const confirmApproveAudit = async () => {
+  if (confirm("Xác nhận hoàn tất kiểm kê? Số lượng tồn kho sẽ được cập nhật theo thực tế.")) {
+    const res = await inventoryStore.approveStockAudit(selectedAudit.value.id);
+    if (res.success) {
+       showSnack("Đã chốt kho thành công");
+       auditDetailDialog.value = false;
+       loadAudits();
+    }
+  }
+}
+const loadTurnover = async () => {
+  const res = await inventoryStore.fetchTurnoverReport();
+  if (res.success) turnoverRepo.value = res.data;
+}
+const getAuditStatusName = (s) => ({ 1: 'Nháp', 2: 'Chờ duyệt', 3: 'Đã duyệt', 4: 'Đã hủy' }[s] || '---')
+const getAuditStatusColor = (s) => ({ 1: 'grey', 2: 'warning', 3: 'success', 4: 'error' }[s] || 'grey')
+
+watch(currentTab, (val) => {
+  if (val === 'audit') loadAudits();
+  if (val === 'reports') loadTurnover();
+})
 
 // Helpers
 const showSnack = (msg, color = 'success') => snack.value = { show: true, message: msg, color }
@@ -618,6 +943,34 @@ const getTxTitle = (t) => ({
   7: 'XUẤT DÙNG NỘI BỘ'
 }[t] || 'Giao dịch Kho')
 
+const getTxLabel = (t) => ({
+  1: 'Nhập kho',
+  2: 'Xuất kho',
+  3: 'Điều chỉnh',
+  4: 'Điều chuyển',
+  7: 'Sử dụng nội bộ'
+}[t] || 'Khác')
+
+const triggerFileInput = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileChange = (e) => {
+  const file = e.target.files[0]
+  if (file) {
+    // In a real app, you would upload this to a server
+    // For now, we'll just mock the URL with the filename
+    transaction.value.attachmentUrl = file.name
+    snack.value = { show: true, message: `Đã chọn file: ${file.name}`, color: 'success' }
+  }
+}
+
+const validatePaidAmount = (val) => {
+  if (val > txTotalValue.value) {
+    transaction.value.paidAmount = txTotalValue.value
+  }
+}
+
 const getTxTypeName = (t) => ({ 
   1: 'Nhập kho', 
   2: 'Xuất kho', 
@@ -628,6 +981,9 @@ const getTxTypeName = (t) => ({
 }[t] || 'Khác')
 
 onMounted(async () => {
+  const pRes = await providerService.getAll()
+  if (pRes.success) providers.value = pRes.data || []
+  
   await Promise.all([
     billingStore.fetchProducts(),
     inventoryStore.fetchWarehouses(),

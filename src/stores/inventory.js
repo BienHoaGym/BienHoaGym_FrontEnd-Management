@@ -70,6 +70,23 @@ export const useInventoryStore = defineStore('inventory', {
       const r = await inventoryService.createInternalSupply(data)
       if (r.success) await this.fetchInventories()
       return r
+    },
+    async fetchAudits() {
+      return await inventoryService.getAudits()
+    },
+    async createStockAudit(warehouseId, note) {
+      return await inventoryService.createAudit(warehouseId, note)
+    },
+    async updateAuditDetail(auditId, productId, quantity, reason) {
+      return await inventoryService.updateAuditDetail(auditId, productId, quantity, reason)
+    },
+    async approveStockAudit(auditId) {
+      const r = await inventoryService.approveAudit(auditId)
+      if (r.success) await this.fetchInventories()
+      return r
+    },
+    async fetchTurnoverReport() {
+      return await inventoryService.getTurnoverReport()
     }
   }
 })

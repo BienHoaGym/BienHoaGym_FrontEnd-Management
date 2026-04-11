@@ -26,6 +26,9 @@ export const providerService = {
   },
   delete(id) {
     return api.delete(`${PROVIDER_API}/${id}`).then(r => r.data);
+  },
+  payDebt(data) {
+    return api.post(`${PROVIDER_API}/pay-debt`, data).then(r => r.data);
   }
 };
 
