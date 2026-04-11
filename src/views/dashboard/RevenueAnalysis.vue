@@ -250,7 +250,7 @@ const loadData = async () => {
       endDate.value = dayjs().format('YYYY-MM-DD')
     }
     const res = await reportService.getRevenueReport(startDate.value, endDate.value)
-    if (res.success) reportData.value = res.data
+    if (res.success || res.Success) reportData.value = res.data || res.Data
   } finally {
     loading.value = false
   }

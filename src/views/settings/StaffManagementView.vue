@@ -396,7 +396,7 @@ const translateRole = (role) => {
     'Admin': 'Quản trị viên',
     'Manager': 'Quản lý',
     'Receptionist': 'Lễ tân',
-    'Trainer': 'HLV (PT)',
+    'Trainer': 'Huấn luyện viên',
     'Member': 'Hội viên'
   }
   return map[role] || role

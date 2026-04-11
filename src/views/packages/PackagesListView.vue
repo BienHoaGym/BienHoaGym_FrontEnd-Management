@@ -22,7 +22,7 @@
                 <v-chip v-if="pkg.hasPT" size="x-small" class="ml-2 mb-2" color="primary" variant="flat">
                   <v-icon start size="12">mdi-account-star</v-icon> Có PT
                 </v-chip>
-                <div class="text-h6 font-weight-bold text-white">{{ pkg.name || pkg.packageName }}</div>
+                <div class="text-h6 font-weight-bold text-white">{{ pkg.name }}</div>
               </div>
               <v-menu>
                 <template #activator="{ props }">
@@ -58,7 +58,7 @@
             >
               {{ formatCurrency(pkg.price) }}
             </div>
-            <div class="text-caption text-grey mb-4">Mỗi {{ pkg.durationInDays || pkg.durationDays }} ngày</div>
+            <div class="text-caption text-grey mb-4">Mỗi {{ pkg.durationInDays }} ngày</div>
 
             <v-list density="compact" class="pa-0">
               <v-list-item density="compact" class="px-0">
@@ -66,7 +66,7 @@
                   <v-icon color="success" size="18">mdi-check-circle</v-icon>
                 </template>
                 <v-list-item-title class="text-body-2">
-                  Thời hạn: {{ pkg.durationInDays || pkg.durationDays }} ngày
+                  Thời hạn: {{ pkg.durationInDays }} ngày
                 </v-list-item-title>
               </v-list-item>
               <v-list-item density="compact" class="px-0">
@@ -286,10 +286,10 @@ const openEdit = (pkg) => {
   selected.value = pkg
   // Map dữ liệu từ pkg vào form
   form.value = {
-    name: pkg.name || pkg.packageName, // Xử lý cả 2 trường hợp tên
+    name: pkg.name,
     price: pkg.price,
     discountPrice: pkg.discountPrice || null,
-    durationInDays: pkg.durationInDays || pkg.durationDays,
+    durationInDays: pkg.durationInDays,
     durationInMonths: pkg.durationInMonths || 1,
     sessionLimit: pkg.sessionLimit || null,
     description: pkg.description || '',

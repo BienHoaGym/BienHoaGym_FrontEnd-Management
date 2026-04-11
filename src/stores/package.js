@@ -36,11 +36,11 @@ export const usePackageStore = defineStore('package', {
       this.saving = true
       try {
         const response = await packageService.create(data)
-        if (response.success) {
+        if (response.success || response.Success) {
           await this.fetchPackages()
-          return { success: true, data: response.data }
+          return { success: true, data: response.data || response.Data }
         }
-        return { success: false, message: response.message }
+        return { success: false, message: response.message || response.Message || 'Create failed' }
       } catch (err) {
         return { success: false, message: err.response?.data?.message || 'Create failed' }
       } finally {
@@ -52,11 +52,11 @@ export const usePackageStore = defineStore('package', {
       this.saving = true
       try {
         const response = await packageService.update(id, data)
-        if (response.success) {
+        if (response.success || response.Success) {
           await this.fetchPackages()
-          return { success: true, data: response.data }
+          return { success: true, data: response.data || response.Data }
         }
-        return { success: false, message: response.message }
+        return { success: false, message: response.message || response.Message || 'Update failed' }
       } catch (err) {
         return { success: false, message: err.response?.data?.message || 'Update failed' }
       } finally {
@@ -68,11 +68,11 @@ export const usePackageStore = defineStore('package', {
       this.loading = true
       try {
         const response = await packageService.delete(id)
-        if (response.success) {
+        if (response.success || response.Success) {
           await this.fetchPackages()
           return { success: true }
         }
-        return { success: false, message: response.message }
+        return { success: false, message: response.message || response.Message || 'Delete failed' }
       } catch (err) {
         return { success: false, message: err.response?.data?.message || 'Delete failed' }
       } finally {

@@ -49,11 +49,28 @@
               <v-window-item value="face">
                 <div class="text-center py-4 px-2">
                   <div class="scanner-container mb-4 mx-auto elevation-5 overflow-hidden position-relative rounded-xl border-lg border-primary">
-                    <video ref="faceVideo" class="face-video" autoplay muted playsinline></video>
+                    <video 
+                      ref="faceVideo" 
+                      class="face-video" 
+                      autoplay 
+                      muted 
+                      playsinline
+                      @playing="isCameraStreaming = true"
+                      @pause="isCameraStreaming = false"
+                    ></video>
+                    
+                    <!-- Nâng cấp chỉ báo chất lượng luồng thực tế (Stream Quality) -->
+                    <div class="quality-indicator">
+                       <v-chip :color="qualityColor" size="x-small" variant="flat" class="font-weight-bold">
+                          {{ qualityText }}
+                       </v-chip>
+                    </div>
+
                     <div v-if="isScanning" class="face-scan-line"></div>
-                    <div v-if="!isCameraActive" class="camera-placeholder d-flex flex-column align-center justify-center">
-                       <v-icon size="64" color="primary-lighten-2">mdi-camera-account</v-icon>
-                       <p class="text-caption mt-2">Camera đang tắt</p>
+                    <div v-if="!isCameraStreaming" class="camera-placeholder d-flex flex-column align-center justify-center">
+                       <v-progress-circular v-if="isCameraActive" indeterminate color="primary" class="mb-2" />
+                       <v-icon v-else size="64" color="primary-lighten-2">mdi-camera-off</v-icon>
+                       <p class="text-caption mt-2">{{ isCameraActive ? 'Đang khởi động camera...' : 'Camera đang tắt' }}</p>
                     </div>
                     <div class="scanner-corners"></div>
                   </div>
@@ -80,7 +97,7 @@
                       Tắt Camera
                     </v-btn>
                   </div>
-                  <p class="text-caption text-grey">Để mặt vào khung hình để hệ thống tự động nhận diện</p>
+                  <p class="text-caption text-grey">Nhìn thẳng vào camera để tự động nhận diện</p>
                 </div>
               </v-window-item>
 
@@ -230,9 +247,13 @@ const qrInput = ref('')
 
 // Camera State
 const isCameraActive = ref(false)
+const isCameraStreaming = ref(false)
+const isHardwareError = ref(false)
 const faceVideo = ref(null)
 const isScanning = ref(false)
 let stream = null
+let scanTimeout = null 
+let isProcessingScan = false 
 
 const memberCode = ref('')
 const validationResult = ref(null)
@@ -242,61 +263,35 @@ const snack = ref({ show: false, message: '', color: 'success' })
 
 const memberList = ref([])
 const isLoadingMembers = ref(false)
+let analysisCtx = null
+let analysisCanvas = null
+let brightnessMonitor = null
+const currentBrightness = ref(0)
 
-let clockInterval
-onMounted(() => {
-  loadMembers()
-  checkinStore.fetchToday()
-  clockInterval = setInterval(() => {
-    currentTime.value = dayjs().format('HH:mm:ss')
-  }, 1000)
+const qualityText = computed(() => {
+  if (!isCameraActive.value) return 'Camera chưa bật'
+  if (!isCameraStreaming.value || !faceVideo.value || faceVideo.value.videoWidth === 0) return 'Đang khởi động...'
+  if (currentBrightness.value < 20) return 'Màn hình tối/Che'
+  if (currentBrightness.value < 50) return 'Chất lượng kém'
+  return 'Sẵn sàng'
 })
 
-onUnmounted(() => {
-  clearInterval(clockInterval)
-  stopCamera()
+const qualityColor = computed(() => {
+  if (!isCameraActive.value) return 'grey'
+  if (!isCameraStreaming.value || !faceVideo.value || faceVideo.value.videoWidth === 0) return 'warning'
+  if (currentBrightness.value < 20) return 'error'
+  if (currentBrightness.value < 50) return 'orange'
+  return 'success'
 })
 
-const startCamera = async (type) => {
-  try {
-    stopCamera() // Dọn dẹp stream cũ nếu có
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user' }
-    })
-    
-    isCameraActive.value = true
-    await nextTick()
-    
-    if (type === 'face' && faceVideo.value) {
-      faceVideo.value.srcObject = stream
-      startFaceScanning()
-    }
-  } catch (err) {
-    console.error('Lỗi truy cập camera:', err)
-    showSnack('Không thể truy cập camera. Vui lòng cấp quyền!', 'error')
-  }
+// --- Helper Functions (Defined before they can be called in hooks) ---
+const showSnack = (msg, color = 'success') => {
+  snack.value = { show: true, message: msg, color }
 }
-
-
-
-watch([activeMethod, isCameraActive], ([method, camera]) => {
-})
-
-const stopCamera = () => {
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop())
-    stream = null
-  }
-  isCameraActive.value = false
-  isScanning.value = false
-}
-
-
 
 const loadMembers = async () => {
   isLoadingMembers.value = true
   try {
-    // Tăng pageSize lên 1000 để FaceID có thể tìm thấy nhiều hội viên hơn (mô phỏng)
     const res = await memberService.getAll(1, 1000)
     let rawData = []
     if (Array.isArray(res)) rawData = res
@@ -306,116 +301,182 @@ const loadMembers = async () => {
     }
     memberList.value = rawData
   } catch (error) {
-    console.error(error)
+    console.error('Lỗi tải danh sách hội viên:', error)
   } finally {
     isLoadingMembers.value = false
   }
 }
 
-const searchFilter = (itemTitle, queryText, item) => {
-  const name = (item.raw.fullName || '').toLowerCase()
-  const code = (item.raw.memberCode || '').toLowerCase()
-  const phone = (item.raw.phoneNumber || '').toLowerCase()
-  const search = queryText.toLowerCase()
-
-  return name.includes(search) || code.includes(search) || phone.includes(search)
-}
-
-const sortedCheckins = computed(() =>
-  [...checkinStore.todayCheckins].sort(
-    (a, b) => new Date(b.checkInTime || b.CheckInTime) - new Date(a.checkInTime || a.CheckInTime)
-  )
-)
-
-const formatTime = (dt) => dt ? dayjs(dt).format('HH:mm') : '—'
-
-const showSnack = (msg, color = 'success') => {
-  snack.value = { show: true, message: msg, color }
-}
-
-const onMemberSelected = async (val) => {
-  validationResult.value = null
-  if (!val) return;
-  
-  if (isAutoMode.value) {
-     await handleAutoFlow(val);
-  } else {
-     await handleValidate();
+const stopCamera = () => {
+  if (stream) {
+    stream.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+    });
+    stream = null;
+  }
+  if (scanTimeout) {
+    clearTimeout(scanTimeout);
+    scanTimeout = null;
+  }
+  isCameraActive.value = false;
+  isCameraStreaming.value = false;
+  isHardwareError.value = false;
+  isScanning.value = false;
+  isProcessingScan = false;
+  currentBrightness.value = 0;
+  if (brightnessMonitor) {
+    clearInterval(brightnessMonitor);
+    brightnessMonitor = null;
   }
 }
 
-let scanTimeout = null;
 const startFaceScanning = () => {
+    // 0. KHÓA HỆ THỐNG (Strict Concurrency Lock)
+    if (isProcessingScan || !isCameraActive.value) return;
+    
+    // Đánh dấu lọc ngay lập tức
+    isProcessingScan = true;
+
+    // Xóa mọi tiến trình chờ trước đó
+    if (scanTimeout) clearTimeout(scanTimeout);
+
+    // 1. RÀNG BUỘC CỨNG: Camera phải thực sự phát hình và có ánh sáng
+    if (!isCameraStreaming.value || !faceVideo.value || 
+        faceVideo.value.videoWidth === 0 || 
+        faceVideo.value.readyState < 4 || 
+        currentBrightness.value < 40) {
+        
+        // Nếu chưa sẵn sàng, nhả khóa và thử lại sau 2s
+        isProcessingScan = false;
+        scanTimeout = setTimeout(startFaceScanning, 2000);
+        return;
+    }
+
+    // Chỉ báo sẵn sàng khi hình ảnh thực sự rõ nét
+    if (!isScanning.value) {
+        // showSnack('Máy ảnh đã sẵn sàng - Đang quét khuôn mặt...', 'success');
+    }
+    
     isScanning.value = true;
-    // Mô phỏng quá trình nhận diện AI sau 2s
+    isProcessingScan = true;
+
+    // 3. TIẾN HÀNH NHẬN DIỆN (Simulation an toàn)
     scanTimeout = setTimeout(async () => {
-        if (!isCameraActive.value || activeMethod.value !== 'face') return;
-        
-        // Tìm một hội viên bất kỳ đã đăng ký FaceID để "giả lập" nhận diện thành công
-        const registeredMember = memberList.value.find(m => m.faceEncoding || m.FaceEncoding);
-        
-        // Gửi encoding (nếu tìm thấy thì dùng của hội viên đó, không thì dùng mẫu mặc định)
-        const mockEncoding = registeredMember 
-          ? (registeredMember.faceEncoding || registeredMember.FaceEncoding) 
-          : "MOCK_FACE_VECTOR_GYM2024001";
+        // Kiểm tra lại trạng thái sau khi đợi
+        if (!isCameraActive.value || activeMethod.value !== 'face') {
+            isProcessingScan = false;
+            isScanning.value = false;
+            return;
+        }
 
         try {
+            // KIỂM TRA LẠI MỘT LẦN NỮA NGAY TRƯỚC KHI GỌI API
+            if (checkFrameBrightness() < 40) {
+                isProcessingScan = false;
+                isScanning.value = false;
+                return;
+            }
+
+            const registeredMember = memberList.value.find(m => m.faceEncoding || m.FaceEncoding);
+            const mockEncoding = registeredMember 
+              ? (registeredMember.faceEncoding || registeredMember.FaceEncoding) 
+              : "MOCK_FACE_VECTOR_GYM2024001"; // Dùng mã mẫu mặc định nếu DB trống
+
             const result = await checkinService.faceCheckIn(mockEncoding);
+            
             if (result.success || result.Success) {
                 const data = result.data || result.Data;
-                showSnack(`✅ Nhận diện: ${data.memberName || 'Thành công'}`, 'success');
+                showSnack(`✅ Nhận diện hệ thống: ${data.memberName}`, 'success');
+                memberCode.value = data.memberCode || data.MemberCode;
+                await handleValidate();
                 checkinStore.fetchToday();
-                // Cooldown 5s để tránh check-in liên tục 1 người
-                setTimeout(() => { if(isCameraActive.value) startFaceScanning(); }, 5000);
+                
+                // Cooldown 10 giây sau khi thành công
+                isProcessingScan = false;
+                scanTimeout = setTimeout(startFaceScanning, 10000);
             } else {
-                showSnack(result.message || 'FaceID không khớp hội viên', 'error');
-                setTimeout(() => { if(isCameraActive.value) startFaceScanning(); }, 3000);
+                // HIỆN LỖI CHI TIẾT TỪ BACKEND (Vd: "Hội viên đang ở trong phòng tập")
+                showSnack(result.message || 'FaceID không khớp hoặc lỗi dữ liệu', 'warning');
+                isProcessingScan = false;
+                // Thử lại sau 5 giây nếu lỗi (để ko bị spam 400)
+                scanTimeout = setTimeout(startFaceScanning, 5000);
             }
         } catch (error) {
-            showSnack('Lỗi API nhận diện', 'error');
+            console.error('API Error:', error);
+            showSnack('Lỗi kết nối API nhận diện', 'error');
+            isProcessingScan = false;
+            scanTimeout = setTimeout(startFaceScanning, 5000);
+        } finally {
+            isScanning.value = false;
         }
-    }, 2000);
+    }, 1500);
 }
 
+const checkFrameBrightness = () => {
+    if (!faceVideo.value || !isCameraActive.value) return 0;
+    if (!analysisCanvas) {
+        analysisCanvas = document.createElement('canvas');
+        analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    analysisCanvas.width = 64;
+    analysisCanvas.height = 64;
+    try {
+        analysisCtx.drawImage(faceVideo.value, 0, 0, 64, 64);
+        const imageData = analysisCtx.getImageData(0, 0, 64, 64);
+        const data = imageData.data;
+        let totalBrightness = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            totalBrightness += (data[i] + data[i+1] + data[i+2]) / 3;
+        }
+        return totalBrightness / (data.length / 4);
+    } catch (e) {
+        return 0;
+    }
+}
 
+const startCamera = async (type) => {
+  try {
+    stopCamera() 
+    isHardwareError.value = false; // Reset error state
+    
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' }
+    })
+    
+    isCameraActive.value = true
+    await nextTick()
+    
+    if (type === 'face' && faceVideo.value) {
+      faceVideo.value.srcObject = stream;
+      
+      if (brightnessMonitor) clearInterval(brightnessMonitor);
+      brightnessMonitor = setInterval(() => {
+          currentBrightness.value = checkFrameBrightness();
+      }, 500);
 
-const handleAutoFlow = async (code) => {
-  memberCode.value = code;
-  const result = await checkinStore.validateMember(code);
-  validationResult.value = result;
-
-  const data = result.data || result.Data;
-  const isValid = data?.isValid ?? data?.IsValid;
-
-  if (isValid) {
-      await handleCheckIn();
-  } else {
-      showSnack(data?.message || 'Không thể check-in tự động', 'error');
+      // THUẬT TOÁN CANH CHỈNH PHẦN CỨNG:
+      setTimeout(() => {
+          if (isCameraActive.value && (!isCameraStreaming.value || faceVideo.value?.videoWidth === 0)) {
+              isHardwareError.value = true;
+          }
+      }, 5000);
+    }
+  } catch (err) {
+    console.error('Lỗi truy cập camera:', err)
+    isHardwareError.value = true;
+    showSnack('Không thể truy cập camera. Vui lòng cấp quyền!', 'error')
   }
 }
 
-const validData = computed(() => {
-  if (!validationResult.value) return null;
-  const d = validationResult.value.data || validationResult.value.Data;
-  if (!d) return null;
-
-  const member = d.member || d.Member || {};
-  const sub = d.activeSubscription || d.ActiveSubscription || {};
-
-  return {
-    isValid: d.isValid ?? d.IsValid,
-    message: d.message ?? d.Message,
-    memberName: member.fullName || member.FullName || 'N/A',
-    packageName: sub.package?.name || sub.Package?.Name || sub.packageName || sub.PackageName || 'N/A',
-    endDate: sub.endDate || sub.EndDate
-  }
+// Watcher để tự động nhận diện
+watch(isCameraStreaming, (streaming) => {
+    if (streaming && activeMethod.value === 'face') {
+        isHardwareError.value = false;
+        // KHÔNG hiện thông báo "Xong" ở đây, để startFaceScanning tự kiểm tra hình ảnh mới báo thành công
+        startFaceScanning();
+    }
 })
-
-const handleValidate = async () => {
-  if (!memberCode.value?.trim()) return
-  const result = await checkinStore.validateMember(memberCode.value.trim())
-  validationResult.value = result
-}
 
 const handleCheckIn = async () => {
   if (!memberCode.value) return;
@@ -436,12 +497,95 @@ const handleCheckIn = async () => {
   }
 }
 
+const handleAutoFlow = async (code) => {
+  memberCode.value = code;
+  const result = await checkinStore.validateMember(code);
+  validationResult.value = result;
+  const data = result.data || result.Data;
+  const isValid = data?.isValid ?? data?.IsValid;
+
+  if (isValid) {
+      await handleCheckIn();
+  } else {
+      showSnack(data?.message || 'Không thể check-in tự động', 'error');
+  }
+}
+
+const handleValidate = async () => {
+  if (!memberCode.value?.trim()) return
+  const result = await checkinStore.validateMember(memberCode.value.trim())
+  validationResult.value = result
+}
+
 const handleCheckOut = async (id) => {
   const result = await checkinStore.checkOut(id)
   if (result.success || result.Success) {
     showSnack('Check-out thành công!', 'success')
     checkinStore.fetchToday()
   }
+}
+
+// --- Lifecycle and watchers ---
+let clockInterval = null;
+onMounted(() => {
+  loadMembers()
+  checkinStore.fetchToday()
+  clockInterval = setInterval(() => {
+    currentTime.value = dayjs().format('HH:mm:ss')
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (clockInterval) clearInterval(clockInterval)
+  stopCamera()
+})
+
+watch(activeMethod, (newVal) => {
+  if (newVal !== 'face') {
+    stopCamera()
+  }
+})
+
+const onMemberSelected = async (val) => {
+  validationResult.value = null
+  if (!val) return;
+  if (isAutoMode.value) {
+     await handleAutoFlow(val);
+  } else {
+     await handleValidate();
+  }
+}
+
+// --- Computeds ---
+const sortedCheckins = computed(() =>
+  [...checkinStore.todayCheckins].sort(
+    (a, b) => new Date(b.checkInTime || b.CheckInTime) - new Date(a.checkInTime || a.CheckInTime)
+  )
+)
+
+const formatTime = (dt) => dt ? dayjs(dt).format('HH:mm') : '—'
+
+const validData = computed(() => {
+  if (!validationResult.value) return null;
+  const d = validationResult.value.data || validationResult.value.Data;
+  if (!d) return null;
+  const member = d.member || d.Member || {};
+  const sub = d.activeSubscription || d.ActiveSubscription || {};
+  return {
+    isValid: d.isValid ?? d.IsValid,
+    message: d.message ?? d.Message,
+    memberName: member.fullName || member.FullName || 'N/A',
+    packageName: sub.package?.name || sub.Package?.Name || sub.packageName || sub.PackageName || 'N/A',
+    endDate: sub.endDate || sub.EndDate
+  }
+})
+
+const searchFilter = (itemTitle, queryText, item) => {
+  const name = (item.raw.fullName || '').toLowerCase()
+  const code = (item.raw.memberCode || '').toLowerCase()
+  const phone = (item.raw.phoneNumber || '').toLowerCase()
+  const search = queryText.toLowerCase()
+  return name.includes(search) || code.includes(search) || phone.includes(search)
 }
 </script>
 
@@ -505,5 +649,21 @@ const handleCheckOut = async (id) => {
   0% { top: 10%; }
   50% { top: 90%; }
   100% { top: 10% ; }
+}
+.camera-status-overlay {
+   position: absolute;
+   top: 0; left: 0; right: 0; bottom: 0;
+   background: rgba(0,0,0,0.7);
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: center;
+   z-index: 10;
+}
+.quality-indicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 15;
 }
 </style>

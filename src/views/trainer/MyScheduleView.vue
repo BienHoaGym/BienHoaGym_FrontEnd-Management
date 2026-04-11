@@ -26,9 +26,27 @@
           hide-details
           prepend-inner-icon="mdi-account-search"
           bg-color="white"
-          class="rounded-lg"
+          class="rounded-lg trainer-select"
           @update:model-value="onTrainerChange"
-        ></v-select>
+        >
+          <!-- Sử dụng slot để làm đẹp tùy chọn "Tất cả" -->
+          <template v-slot:prepend-item>
+            <v-list-item
+              title="Tất cả huấn luyện viên"
+              subtitle="Xem tổng hợp lịch trình toàn phòng gym"
+              @click="selectedTrainerId = 'all'; onTrainerChange('all')"
+              :active="selectedTrainerId === 'all'"
+              active-color="primary"
+            >
+              <template v-slot:prepend>
+                <v-avatar color="primary-lighten-4" size="32">
+                  <v-icon color="primary" size="20">mdi-account-group</v-icon>
+                </v-avatar>
+              </template>
+            </v-list-item>
+            <v-divider class="mt-2 text-grey-lighten-3"></v-divider>
+          </template>
+        </v-select>
       </v-col>
       <v-spacer v-else></v-spacer>
 
@@ -268,6 +286,7 @@ const currentDayName = ref(dayjs().format('dddd'))
 
 const pageTitle = computed(() => {
   if (!selectedTrainerId.value) return 'Lịch làm việc của tôi'
+  if (selectedTrainerId.value === 'all') return 'Tổng hợp lịch trình (Tất cả PT)'
   const trainer = trainerStore.trainers.find(t => t.id === selectedTrainerId.value)
   return trainer ? `Lịch của: ${trainer.fullName}` : 'Lịch làm việc'
 })
@@ -310,14 +329,16 @@ const formatDate = (date) => {
 const fetchSchedule = async (trainerId = null) => {
   loading.value = true
   let res
-  if (trainerId) {
+  if (trainerId === 'all') {
+    res = await trainerStore.fetchGlobalSchedule()
+  } else if (trainerId) {
     res = await trainerStore.fetchTrainerSchedule(trainerId)
   } else {
     res = await trainerStore.fetchMySchedule()
   }
 
-  if (res.success) {
-    schedule.value = res.data
+  if (res.success || res.Success) {
+    schedule.value = res.data || res.Data || { classes: [], personalClients: [] }
   } else {
     snack.value = {
       show: true,

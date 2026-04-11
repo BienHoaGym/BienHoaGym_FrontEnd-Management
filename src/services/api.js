@@ -23,7 +23,24 @@ api.interceptors.request.use(
 
 // Response interceptor
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Hàm đệ quy để biến tất cả keys thành camelCase
+    const toCamel = (o) => {
+      if (o === null || typeof o !== 'object') return o
+      if (Array.isArray(o)) return o.map(toCamel)
+      const n = {}
+      Object.keys(o).forEach((k) => {
+        const nk = k.charAt(0).toLowerCase() + k.slice(1)
+        n[nk] = toCamel(o[k])
+      })
+      return n
+    }
+
+    if (response.data) {
+      response.data = toCamel(response.data)
+    }
+    return response
+  },
   async (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')

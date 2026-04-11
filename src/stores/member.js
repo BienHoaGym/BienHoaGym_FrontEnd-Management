@@ -29,13 +29,14 @@ export const useMemberStore = defineStore('member', {
       this.error = null
       try {
         const response = await memberService.getAll(pageNumber, pageSize)
-        if (response.success) {
-          this.members = response.data.items
+        if (response.success || response.Success) {
+          const data = response.data || response.Data
+          this.members = data.items || []
           this.pagination = {
-            pageNumber: response.data.pageNumber,
-            pageSize: response.data.pageSize,
-            totalCount: response.data.totalCount,
-            totalPages: response.data.totalPages,
+            pageNumber: data.pageNumber || 1,
+            pageSize: data.pageSize || 10,
+            totalCount: data.totalCount || 0,
+            totalPages: data.totalPages || 0,
           }
         }
       } catch (error) {
@@ -50,9 +51,9 @@ export const useMemberStore = defineStore('member', {
       this.error = null
       try {
         const response = await memberService.getById(id)
-        if (response.success) {
-          this.currentMember = response.data
-          return response.data
+        if (response.success || response.Success) {
+          this.currentMember = response.data || response.Data
+          return this.currentMember
         }
       } catch (error) {
         this.error = error.response?.data?.message || 'Member not found'
@@ -67,9 +68,10 @@ export const useMemberStore = defineStore('member', {
       this.error = null
       try {
         const response = await memberService.search(keyword)
-        if (response.success) {
-          this.members = response.data
-          this.pagination = { ...this.pagination, totalCount: response.data.length }
+        if (response.success || response.Success) {
+          const data = response.data || response.Data || []
+          this.members = data
+          this.pagination = { ...this.pagination, totalCount: data.length }
         }
       } catch (error) {
         this.error = error.response?.data?.message || 'Search failed'
@@ -83,9 +85,9 @@ export const useMemberStore = defineStore('member', {
       this.error = null
       try {
         const response = await memberService.create(data)
-        if (response.success) {
+        if (response.success || response.Success) {
           await this.fetchMembers(this.pagination.pageNumber, this.pagination.pageSize)
-          return { success: true, data: response.data }
+          return { success: true, data: response.data || response.Data }
         }
         return { success: false, message: response.message }
       } catch (error) {
@@ -102,9 +104,9 @@ export const useMemberStore = defineStore('member', {
       this.error = null
       try {
         const response = await memberService.update(id, data)
-        if (response.success) {
+        if (response.success || response.Success) {
           await this.fetchMembers(this.pagination.pageNumber, this.pagination.pageSize)
-          return { success: true, data: response.data }
+          return { success: true, data: response.data || response.Data }
         }
         return { success: false, message: response.message }
       } catch (error) {

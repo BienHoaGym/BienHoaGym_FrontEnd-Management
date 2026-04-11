@@ -400,12 +400,26 @@
         </v-card-title>
         <v-card-text class="pa-0">
           <div class="bg-black position-relative" style="height: 350px;">
-            <video ref="regVideo" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+            <video ref="regVideo" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover;" @playing="isCameraStreaming = true" @pause="isCameraStreaming = false"></video>
             <div class="face-guide"></div>
             <div v-if="capturing" class="scan-overlay">
               <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
               <p class="text-white mt-4">Đang mã hóa khuôn mặt...</p>
             </div>
+            
+            <!-- Quality Indicator -->
+            <div class="position-absolute top-0 right-0 ma-2 z-index-10">
+               <v-chip :color="qualityColor" size="small" variant="flat" class="font-weight-bold">
+                  {{ qualityText }}
+               </v-chip>
+            </div>
+            <div v-if="!isCameraStreaming && faceDialog" class="camera-placeholder d-flex flex-column align-center justify-center">
+               <v-progress-circular indeterminate color="primary" class="mb-2" />
+               <p class="text-white text-caption">Đang khởi động camera...</p>
+            </div>
+            <v-alert v-if="isHardwareError" type="error" density="compact" class="position-absolute bottom-0 left-0 right-0 mx-4 mb-4 z-index-10">
+               Lỗi: Camera phản hồi chậm hoặc bị lỗi!
+            </v-alert>
           </div>
           <div class="pa-4 text-center">
             <p class="text-caption text-grey-darken-1 mb-4">
@@ -413,7 +427,7 @@
             </p>
             <div class="d-flex justify-center gap-2">
               <v-btn color="grey-lighten-3" @click="closeFaceRegistration">Hủy bỏ</v-btn>
-              <v-btn color="primary" :loading="capturing" @click="registerFace">Chụp & Lưu Face ID</v-btn>
+              <v-btn color="primary" :loading="capturing" :disabled="!canCapture" @click="registerFace">Chụp & Lưu Face ID</v-btn>
             </div>
           </div>
         </v-card-text>
@@ -489,7 +503,13 @@ import { formatDate, formatDateTime } from '@/utils/helpers'
 const faceDialog = ref(false)
 const regVideo = ref(null)
 const capturing = ref(false)
+const isCameraStreaming = ref(false)
+const isHardwareError = ref(false)
 let regStream = null
+let analysisCanvas = null
+let analysisCtx = null
+let brightnessInterval = null
+const currentBrightness = ref(0)
 
 // Dialog Tạm dừng
 const pauseDialog = ref(false)
@@ -500,35 +520,123 @@ const pausing = ref(false)
 
 const openFaceRegistration = async () => {
   faceDialog.value = true
+  isHardwareError.value = false
+  isCameraStreaming.value = false
   await nextTick()
   try {
-    regStream = await navigator.mediaDevices.getUserMedia({ video: true })
+    regStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
     if (regVideo.value) regVideo.value.srcObject = regStream
+    
+    // Bắt đầu giám sát độ sáng liên tục để update 'canCapture'
+    if (brightnessInterval) clearInterval(brightnessInterval)
+    brightnessInterval = setInterval(() => {
+        currentBrightness.value = checkFrameBrightness()
+    }, 500)
+
+    // Kiểm tra phần cứng sau 5s
+    setTimeout(() => {
+        if (faceDialog.value && !isCameraStreaming.value) {
+            isHardwareError.value = true
+            isCameraStreaming.value = false
+            useUiStore().showWarning('Máy ảnh không thể phát hình! Vui lòng kiểm tra lại thiết bị.', 'Cảnh báo Camera')
+        }
+    }, 5000)
   } catch (err) {
     const uiStore = useUiStore()
-    uiStore.showWarning('Không thể mở camera đăng ký! Vui lòng kiểm tra quyền truy cập camera.', 'Lỗi Camera')
+    uiStore.showWarning('Không thể mở camera! Vui lòng kiểm tra quyền truy cập.', 'Lỗi Camera')
   }
 }
 
 const closeFaceRegistration = () => {
+  if (brightnessInterval) {
+    clearInterval(brightnessInterval)
+    brightnessInterval = null
+  }
   if (regStream) {
     regStream.getTracks().forEach(t => t.stop())
     regStream = null
   }
+  isCameraStreaming.value = false
+  isHardwareError.value = false
+  currentBrightness.value = 0
   faceDialog.value = false
 }
 
+const checkFrameBrightness = () => {
+  if (!regVideo.value || !regStream) return 0
+  if (!analysisCanvas) {
+    analysisCanvas = document.createElement('canvas')
+    analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true })
+  }
+  analysisCanvas.width = 64
+  analysisCanvas.height = 64
+  try {
+    analysisCtx.drawImage(regVideo.value, 0, 0, 64, 64)
+    const imageData = analysisCtx.getImageData(0, 0, 64, 64)
+    const data = imageData.data
+    let totalBrightness = 0
+    for (let i = 0; i < data.length; i += 4) {
+      totalBrightness += (data[i] + data[i+1] + data[i+2]) / 3
+    }
+    return totalBrightness / (data.length / 4)
+  } catch (e) {
+    return 0
+  }
+}
+
+const qualityText = computed(() => {
+  if (!isCameraStreaming.value || !regVideo.value || regVideo.value.videoWidth === 0) return 'Đang khởi động...'
+  if (currentBrightness.value < 20) return 'Màn hình tối/Che khuất'
+  if (currentBrightness.value < 50) return 'Ánh sáng yếu'
+  return 'Sẵn sàng'
+})
+
+const qualityColor = computed(() => {
+  if (!isCameraStreaming.value || !regVideo.value || regVideo.value.videoWidth === 0) return 'grey'
+  if (currentBrightness.value < 20) return 'error'
+  if (currentBrightness.value < 50) return 'warning'
+  return 'success'
+})
+
+const canCapture = computed(() => {
+  return isCameraStreaming.value && 
+         regVideo.value && 
+         regVideo.value.videoWidth > 0 &&
+         regVideo.value.readyState >= 4 && 
+         currentBrightness.value >= 40
+})
+
 const registerFace = async () => {
-  capturing.value = true
   const uiStore = useUiStore()
-  // Mã hóa ổn định dựa trên MemberCode để phục vụ Simulation Check-in
-  const mockEncoding = `MOCK_FACE_VECTOR_${member.value.memberCode}`
+
+  // 1. RÀNG BUỘC CỨNG (Double check state)
+  if (!canCapture.value) {
+    let reason = 'Hệ thống chưa nhận diện được tín hiệu camera hợp lệ!'
+    if (regVideo.value?.videoWidth === 0) reason = 'Camera đang khởi tạo hoặc bị ngắt kết nối!'
+    else if (currentBrightness.value < 40) reason = 'Hình ảnh quá tối hoặc máy ảnh bị che khuất!'
+    else if (isHardwareError.value) reason = 'Lỗi kết nối phần cứng máy ảnh!'
+    
+    uiStore.showError(reason, 'Lỗi Camera')
+    return
+  }
+
+  // 2. PHÂN TÍCH FRAME TRƯỚC KHI LƯU
+  const brightness = checkFrameBrightness()
+  if (brightness < 20) {
+    uiStore.showError('Không thể lấy mẫu: Hình ảnh không đủ ánh sáng!', 'Lỗi Chất Lượng')
+    return
+  }
+
+  capturing.value = true
+  
+  const m = member.value
+  const mockEncoding = `MOCK_FACE_VECTOR_${m.memberCode || m.MemberCode}`
+  const memberId = m.id || m.Id
   
   try {
-    const res = await memberService.update(member.value.id || member.value.Id, {
-      ...member.value,
-      faceEncoding: mockEncoding
-    })
+    // SỬ DỤNG ENDPOINT RIÊNG BIỆT: Chỉ cập nhật FaceID
+    // Giúp bỏ qua việc kiểm tra các trường không liên quan như số điện thoại, email
+    const res = await memberService.updateFace(memberId, mockEncoding)
     
     if (res.success || res.Success) {
       member.value.faceEncoding = mockEncoding
@@ -538,7 +646,15 @@ const registerFace = async () => {
       uiStore.showError(res.message || 'Lỗi đăng ký khuôn mặt', 'Face ID')
     }
   } catch (error) {
-    uiStore.showError('Lỗi kết nối khi đăng ký khuôn mặt', 'Lỗi kết nối')
+    console.error('Lỗi khi gửi FaceID:', error.response?.data)
+    const errorData = error.response?.data
+    let errorMsg = 'Lỗi kết nối khi đăng ký khuôn mặt'
+    
+    if (errorData?.message || errorData?.Message) {
+       errorMsg = errorData.message || errorData.Message
+    }
+    
+    uiStore.showError(errorMsg, 'Lỗi cập nhật')
   } finally {
     capturing.value = false
   }

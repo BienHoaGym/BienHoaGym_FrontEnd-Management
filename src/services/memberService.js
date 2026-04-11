@@ -36,6 +36,11 @@ export const memberService = {
     return response.data
   },
 
+  async updateFace(id, faceEncoding) {
+    const response = await api.put(`/Members/${id}/face`, JSON.stringify(faceEncoding))
+    return response.data
+  },
+
   async delete(id) {
     const response = await api.delete(`/Members/${id}`)
     return response.data

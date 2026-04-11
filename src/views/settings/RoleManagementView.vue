@@ -282,11 +282,30 @@ const permissionGroups = {
   package: {
     title: 'Gói tập & Đăng ký', icon: 'mdi-package-variant-closed',
     perms: [
-      { label: 'Xem gói/đăng ký', value: 'package.read' },
-      { label: 'Xem đăng ký cá nhân', value: 'subscription.read' },
-      { label: 'Tạo mới', value: 'package.create' },
-      { label: 'Gia hạn/Cập nhật', value: 'package.update' },
-      { label: 'Xóa', value: 'package.delete' }
+      { label: 'Xem Gói/Đăng ký', value: 'package.read' },
+      { label: 'Xem chi tiết Đăng ký', value: 'subscription.read' },
+      { label: 'Tạo Gói tập', value: 'package.create' },
+      { label: 'Tạo Đăng ký mới', value: 'subscription.create' },
+      { label: 'Gia hạn/Cập nhật', value: 'subscription.update' },
+      { label: 'Xóa Gói tập', value: 'package.delete' }
+    ]
+  },
+  billing: {
+    title: 'Hóa đơn & Thanh toán', icon: 'mdi-cash-register',
+    perms: [
+      { label: 'Xem hóa đơn', value: 'billing.read' },
+      { label: 'Xuất hóa đơn (POS)', value: 'billing.create' },
+      { label: 'Xem thanh toán', value: 'payment.read' },
+      { label: 'Tạo thanh toán', value: 'payment.create' }
+    ]
+  },
+  product: {
+    title: 'Sản phẩm', icon: 'mdi-cart-outline',
+    perms: [
+      { label: 'Xem sản phẩm', value: 'product.read' },
+      { label: 'Thêm mới', value: 'product.create' },
+      { label: 'Cập nhật', value: 'product.update' },
+      { label: 'Xóa', value: 'product.delete' }
     ]
   },
   checkin: {
@@ -311,7 +330,7 @@ const permissionGroups = {
     title: 'Kho vật tư', icon: 'mdi-warehouse',
     perms: [
       { label: 'Xem tồn kho', value: 'inventory.read' },
-      { label: 'Nhập/Xuất kho', value: 'inventory.consume' }, // Dùng chung cho tiêu dùng/điều chuyển
+      { label: 'Nhập/Xuất kho', value: 'inventory.consume' },
       { label: 'Quản trị kho', value: 'inventory.manage' }
     ]
   },
@@ -361,34 +380,66 @@ watch(tab, (newVal) => {
 
 const getPermissionLabel = (value) => {
   const translations = {
-    'member.read': 'Xem HV',
-    'member.profile.read': 'Hồ sơ cá nhân',
-    'member.create': 'Thêm HV',
-    'member.update': 'Sửa HV',
-    'member.delete': 'Xóa HV',
-    'package.read': 'Xem Gói',
+    // Hội viên
+    'member.read': 'Xem DS Hội viên',
+    'member.profile.read': 'Xem hồ sơ HV',
+    'member.create': 'Thêm Hội viên',
+    'member.update': 'Sửa Hội viên',
+    'member.delete': 'Xóa Hội viên',
+    
+    // Gói tập
+    'package.read': 'Xem Gói tập',
+    'package.create': 'Tạo Gói tập',
+    'package.update': 'Sửa Gói tập',
+    'package.delete': 'Xóa Gói tập',
+
+    // Đăng ký (Subscription)
     'subscription.read': 'Xem Đăng ký',
-    'package.create': 'Tạo Gói',
-    'package.update': 'Sửa Gói',
-    'package.delete': 'Xóa Gói',
-    'checkin.read': 'Xem Check-in',
-    'checkin.self': 'Tự Check-in',
+    'subscription.create': 'Tạo Đăng ký mới',
+    'subscription.update': 'Gia hạn/Sửa Đăng ký',
+    'subscription.delete': 'Hủy Đăng ký',
+
+    // Thanh toán & Hóa đơn
+    'payment.read': 'Xem Thanh toán',
+    'payment.create': 'Tạo Thanh toán',
+    'payment.update': 'Sửa Thanh toán',
+    'billing.read': 'Xem Hóa đơn',
+    'billing.create': 'Xuất Hóa đơn',
+    'billing.update': 'Sửa Hóa đơn',
+
+    // Sản phẩm
+    'product.read': 'Xem Sản phẩm',
+    'product.create': 'Thêm Sản phẩm',
+    'product.update': 'Sửa Sản phẩm',
+    'product.delete': 'Xóa Sản phẩm',
+
+    // Vận hành
+    'checkin.read': 'Xem Lịch sử Check-in',
+    'checkin.self': 'Khách tự Check-in',
     'checkin.create': 'Lễ tân Check-in',
+    
+    // Lớp học
     'class.read': 'Xem Lịch lớp',
-    'class.enroll': 'Đăng ký lớp',
-    'class.create': 'Tạo Lớp',
-    'class.update': 'Sửa Lớp',
-    'class.manage': 'Điểm danh',
-    'inventory.read': 'Xem Kho',
-    'inventory.consume': 'Xuất kho',
-    'inventory.manage': 'Quản trị kho',
+    'class.enroll': 'Đăng ký vào lớp',
+    'class.create': 'Tạo Lớp học',
+    'class.update': 'Sửa Lớp học',
+    'class.manage': 'Điểm danh & Quản lý lớp',
+
+    // Kho & Thiết bị
+    'inventory.read': 'Xem Tồn kho',
+    'inventory.consume': 'Xuất kho vật tư',
+    'inventory.manage': 'Quản trị danh mục kho',
     'equipment.read': 'Xem Thiết bị',
-    'equipment.update': 'Sửa TB',
-    'equipment.report': 'Báo hỏng',
+    'equipment.update': 'Sửa/Bảo trì TB',
+    'equipment.report': 'Báo hỏng Thiết bị',
+
+    // Báo cáo & Hệ thống
     'report.read': 'Báo cáo cơ bản',
     'report.financial': 'Doanh thu',
-    'auditlog.read': 'Audit Log',
-    '*': 'Toàn quyền (*) '
+    'auditlog.read': 'Nhật ký hệ thống',
+    'settings.manage': 'Cài đặt hệ thống',
+    'role.manage': 'Thiết lập RBAC',
+    '*': 'TOÀN QUYỀN HỆ THỐNG (*) '
   }
   
   // Xử lý wildcard dạng module.*
