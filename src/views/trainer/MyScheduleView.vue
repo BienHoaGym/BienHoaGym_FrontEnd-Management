@@ -310,11 +310,17 @@ const clientHeaders = [
 
 const todayClasses = computed(() => {
   const todayEng = dayjs().format('dddd') // e.g. "Monday"
-  return (schedule.value.classes || []).filter(c => c.scheduleDay === todayEng)
+  return (schedule.value.classes || []).filter(c => {
+    const days = c.scheduleDay || c.ScheduleDay || []
+    return Array.isArray(days) ? days.includes(todayEng) : days === todayEng
+  })
 })
 
 const getClassesForDay = (dayValue) => {
-  return (schedule.value.classes || []).filter(c => c.scheduleDay === dayValue)
+  return (schedule.value.classes || []).filter(c => {
+    const days = c.scheduleDay || c.ScheduleDay || []
+    return Array.isArray(days) ? days.includes(dayValue) : days === dayValue
+  })
 }
 
 const formatTime24 = (t) => {

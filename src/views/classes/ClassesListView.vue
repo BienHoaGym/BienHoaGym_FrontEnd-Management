@@ -36,7 +36,11 @@
                   <v-icon size="small" class="mr-1">mdi-clock-outline</v-icon>
                   {{ formatTime24(cls.startTime || cls.StartTime) }} – {{ formatTime24(cls.endTime || cls.EndTime) }}
                   <span class="mx-2">|</span>
-                  {{ translateDay(cls.scheduleDay || cls.ScheduleDay) }}
+                  <span class="font-weight-bold">
+                    {{ (Array.isArray(cls.scheduleDay || cls.ScheduleDay) && (cls.scheduleDay || cls.ScheduleDay).length > 0) 
+                        ? (cls.scheduleDay || cls.ScheduleDay).map(d => translateDay(d)).join(', ') 
+                        : translateDay(cls.scheduleDay || cls.ScheduleDay) }}
+                  </span>
                 </div>
               </div>
               <v-menu transition="scale-transition">
@@ -168,6 +172,9 @@
                   item-title="title"
                   item-value="value"
                   variant="outlined"
+                  multiple
+                  chips
+                  closable-chips
                   :disabled="saving"
                 />
               </v-col>
@@ -392,7 +399,7 @@ const formRef = ref(null)
 const snack = ref({ show: false, message: '', color: 'success' })
 
 const defaultForm = {
-  className: '', classType: 'Yoga', trainerId: null, scheduleDay: 'Monday',
+  className: '', classType: 'Yoga', trainerId: null, scheduleDay: [],
   startTime: '06:00', endTime: '07:00',
   maxCapacity: 20, description: '', isActive: true
 }
@@ -441,7 +448,10 @@ const lightenColor = (color, percent) => {
 
 const filteredClasses = computed(() => {
   if (activeDay.value === 'all') return classStore.classes
-  return classStore.classes.filter(c => c.scheduleDay === activeDay.value)
+  return classStore.classes.filter(c => {
+    const days = c.scheduleDay || c.ScheduleDay || []
+    return Array.isArray(days) ? days.includes(activeDay.value) : days === activeDay.value
+  })
 })
 
 const trainerOptions = computed(() =>
@@ -480,7 +490,8 @@ const openEdit = (cls) => {
   isEdit.value = true; selected.value = cls
   form.value = {
     className: cls.className, classType: cls.classType || 'Khác', trainerId: cls.trainerId,
-    scheduleDay: cls.scheduleDay, startTime: formatTime24(cls.startTime),
+    scheduleDay: Array.isArray(cls.scheduleDay) ? [...cls.scheduleDay] : [cls.scheduleDay], 
+    startTime: formatTime24(cls.startTime),
     endTime: formatTime24(cls.endTime), maxCapacity: cls.maxCapacity,
     description: cls.description || '', isActive: cls.isActive
   }

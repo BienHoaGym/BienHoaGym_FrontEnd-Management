@@ -74,6 +74,12 @@ const routes = [
         meta: { permission: 'subscription.read', title: 'Quản lý Đăng ký' }
       },
       {
+        path: 'trainer-assignments',
+        name: 'TrainerAssignments',
+        component: () => import('@/views/trainers/TrainerAssignmentListView.vue'),
+        meta: { permission: 'trainer.read', title: 'Phân công PT 1-1' }
+      },
+      {
         path: 'checkins',
         name: 'CheckIns',
         component: () => import('@/views/checkins/CheckInsView.vue'),

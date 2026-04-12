@@ -5,6 +5,7 @@ import { trainerService } from '@/services/trainerService'
 export const useTrainerStore = defineStore('trainer', {
   state: () => ({
     trainers: [],
+    assignments: [],
     loading: false,
     saving: false,
     error: null
@@ -130,6 +131,18 @@ export const useTrainerStore = defineStore('trainer', {
         return r
       } catch (e) {
         return { success: false, message: e.response?.data?.message || 'Load global schedule failed' }
+      } finally { this.loading = false }
+    },
+    async fetchAllAssignments() {
+      this.loading = true
+      try {
+        const r = await trainerService.getAllAssignments()
+        if (r.success || r.Success) {
+          this.assignments = r.data || r.Data || []
+        }
+        return r
+      } catch (e) {
+        return { success: false, message: e.response?.data?.message || 'Load assignments failed' }
       } finally { this.loading = false }
     }
   }

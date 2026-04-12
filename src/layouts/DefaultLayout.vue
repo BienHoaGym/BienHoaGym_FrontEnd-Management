@@ -157,6 +157,7 @@ const menuGroups = computed(() => {
       title: 'LỚP HỌC & ĐÀO TẠO',
       items: [
         { title: 'Quản lý Lịch lớp', icon: 'mdi-calendar-edit', to: '/classes', value: 'classes', permission: 'class.read' },
+        { title: 'Phân công PT 1-1', icon: 'mdi-account-switch', to: '/trainer-assignments', value: 'trainer-assignments', permission: 'trainer.read' },
         { title: 'Lịch cá nhân PT', icon: 'mdi-calendar-account', to: '/my-schedule', value: 'my-schedule', permission: 'class.manage' }
       ]
     },
