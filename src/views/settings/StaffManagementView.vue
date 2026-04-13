@@ -47,7 +47,8 @@
         <template #[`item.fullName`]="{ item }">
           <div class="d-flex align-center py-2">
             <v-avatar :color="getRoleColor(item.role)" variant="tonal" size="40" class="mr-3">
-              <v-icon size="20">{{ getRoleIcon(item.role) }}</v-icon>
+              <v-img v-if="item.profilePhoto" :src="getFullImageUrl(item.profilePhoto)" cover />
+              <v-icon v-else size="20">{{ getRoleIcon(item.role) }}</v-icon>
             </v-avatar>
             <div>
               <div class="font-weight-bold">{{ item.fullName }}</div>
@@ -130,6 +131,26 @@
                   density="comfortable"
                 ></v-text-field>
               </v-col>
+              <v-col cols="12">
+                <div class="d-flex align-center gap-4">
+                  <v-avatar size="64" class="border" rounded="lg">
+                    <v-img v-if="form.profilePhoto" :src="getFullImageUrl(form.profilePhoto)" cover />
+                    <v-icon v-else>mdi-account</v-icon>
+                  </v-avatar>
+                  <v-file-input
+                    label="Tải lên ảnh chân dung"
+                    variant="outlined"
+                    rounded="lg"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-camera"
+                    accept="image/*"
+                    hide-details
+                    @change="handleFileChange"
+                    :loading="uploading"
+                    :disabled="saving"
+                  ></v-file-input>
+                </div>
+              </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
                   v-model="form.phoneNumber"
@@ -155,7 +176,7 @@
               </v-col>
 
               <!-- --- TRAINER SPECIFIC FIELDS --- -->
-              <v-col cols="12" v-if="form.roleIds.includes(3)">
+              <v-col cols="12" v-if="isTrainerSelected">
                 <v-divider class="mb-4"></v-divider>
                 <div class="text-subtitle-2 font-weight-bold text-primary mb-3">THÔNG TIN CHUYÊN MÔN (Dành cho Huấn luyện viên)</div>
                 <v-row dense>
@@ -167,6 +188,10 @@
                   </v-col>
                   <v-col cols="12" md="3">
                     <v-text-field v-model.number="form.salary" type="number" label="Lương" variant="outlined" rounded="lg" density="comfortable" prefix="VND"></v-text-field>
+                  </v-col>
+                  <v-col cols="12">
+                    <v-switch v-model="form.isPublic" label="Công khai trên Website Marketing" color="primary" inset density="compact" hide-details></v-switch>
+                    <div class="text-caption text-grey mt-1 ml-10">Khi bật, hồ sơ HLV sẽ xuất hiện trên trang chủ Marketing</div>
                   </v-col>
                 </v-row>
               </v-col>
@@ -266,16 +291,47 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { userService } from '@/services/userService'
 import { roleService } from '@/services/roleService'
+import { uploadService } from '@/services/uploadService'
 
 const route = useRoute()
 
 const loading = ref(false)
 const saving = ref(false)
+const uploading = ref(false)
 const staff = ref([])
 const roles = ref([])
 const search = ref('')
 const roleFilter = ref(null)
 const snack = ref({ show: false, message: '', color: 'success' })
+
+const isTrainerSelected = computed(() => {
+  const trainerRole = roleOptionsList.value.find(r => r.roleName === 'Trainer')
+  return trainerRole && form.value.roleIds.includes(trainerRole.id)
+})
+
+const getFullImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return (import.meta.env.VITE_API_URL || 'http://localhost:10000/api').split('/api')[0] + url
+}
+
+const handleFileChange = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  uploading.value = true
+  try {
+    const res = await uploadService.uploadProfilePhoto(file)
+    if (res.url) {
+      form.value.profilePhoto = res.url
+      showSnack('Tải ảnh lên thành công!')
+    }
+  } catch (e) {
+    showSnack('Lỗi khi tải ảnh lên', 'error')
+  } finally {
+    uploading.value = false
+  }
+}
 
 const formDialog = ref(false)
 const isEdit = ref(false)
@@ -283,7 +339,7 @@ const defaultForm = {
   id: '', username: '', password: '', fullName: '', email: '', phoneNumber: '',
   roleIds: [], isActive: true, specialization: '', experienceYears: 0, salary: 0,
   identityNumber: '', address: '', birthDate: null, gender: 'Nam', hireDate: null,
-  bankCardNumber: '', bankName: ''
+  bankCardNumber: '', bankName: '', profilePhoto: '', isPublic: false
 }
 const form = ref({ ...defaultForm })
 

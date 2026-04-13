@@ -27,13 +27,14 @@
           <v-card class="rounded-xl overflow-hidden border shadow-sm mb-6">
             <v-img
               height="120"
-              src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop"
+              :src="getFullImageUrl(staff.profilePhoto) || 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop'"
               cover
               gradient="to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.5)"
             ></v-img>
             <v-card-text class="text-center pt-0">
               <v-avatar size="130" :color="getRoleColor(staff.roles?.[0])" class="elevation-10 staff-avatar-offset" variant="flat">
-                <span class="text-h1 font-weight-bold text-white">{{ staff.fullName?.charAt(0) }}</span>
+                <v-img v-if="staff.profilePhoto" :src="getFullImageUrl(staff.profilePhoto)" cover />
+                <span v-else class="text-h1 font-weight-bold text-white">{{ staff.fullName?.charAt(0) }}</span>
               </v-avatar>
               
               <div class="mt-4">
@@ -236,6 +237,15 @@
                     <div class="text-caption text-grey">Số năm kinh nghiệm</div>
                     <div class="text-h6 font-weight-bold mb-4">{{ staff.experienceYears || 0 }} năm</div>
                   </v-col>
+                  <v-col cols="12" sm="4">
+                    <div class="text-caption text-grey">Trạng thái Marketing</div>
+                    <div class="mt-1">
+                      <v-chip :color="staff.isPublic ? 'primary' : 'grey'" size="small" variant="flat">
+                        <v-icon start size="14">{{ staff.isPublic ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
+                        {{ staff.isPublic ? 'CÔNG KHAI' : 'RIÊNG TƯ' }}
+                      </v-chip>
+                    </div>
+                  </v-col>
                 </v-row>
                 
                 <h4 class="text-subtitle-1 font-weight-bold mb-2">Giới thiệu bản thân</h4>
@@ -266,6 +276,12 @@ const staff = ref(null)
 const error = ref(null)
 const tab = ref('profile')
 const snack = ref({ show: false, message: '', color: 'success' })
+
+const getFullImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return (import.meta.env.VITE_API_BASE_URL || 'http://localhost:10000/api').split('/api')[0] + url
+}
 
 const fetchData = async () => {
   loading.value = true

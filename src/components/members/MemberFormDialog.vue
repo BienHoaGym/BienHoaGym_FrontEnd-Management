@@ -37,7 +37,7 @@
                 density="comfortable"
                 :rules="[rules.required, rules.phone]"
                 :disabled="saving"
-                placeholder="0901234567"
+                placeholder="0908581517"
               />
             </v-col>
 
@@ -117,7 +117,7 @@
                 density="comfortable"
                 :rules="[rules.phone]"
                 :disabled="saving"
-                placeholder="0901234567"
+                placeholder="0908581517"
               />
             </v-col>
 

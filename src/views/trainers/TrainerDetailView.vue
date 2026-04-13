@@ -14,14 +14,15 @@
       <v-card class="mb-6 rounded-lg overflow-hidden" elevation="2">
         <v-img
           height="160"
-          src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop"
+          :src="trainer.profilePhoto || 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop'"
           cover
           class="align-end"
           gradient="to bottom, rgba(0,0,0,.1), rgba(0,0,0,.7)"
         >
           <v-card-title class="text-white d-flex align-end pl-6 pb-4" style="gap: 20px">
             <v-avatar size="100" color="white" class="elevation-4" style="border: 4px solid white; margin-bottom: -40px;">
-              <span class="text-h3 font-weight-bold text-primary">
+              <v-img v-if="trainer.profilePhoto" :src="trainer.profilePhoto" cover />
+              <span v-else class="text-h3 font-weight-bold text-primary">
                 {{ trainer.fullName?.charAt(0)?.toUpperCase() }}
               </span>
             </v-avatar>

@@ -20,7 +20,8 @@
         <v-card hover class="rounded-xl overflow-hidden" :class="!trainer.isActive ? 'opacity-60' : ''">
           <v-card-text class="text-center pt-6 pb-2">
             <v-avatar color="primary" variant="tonal" size="80" class="mb-3">
-              <span class="text-h4 font-weight-bold">
+              <v-img v-if="trainer.profilePhoto" :src="getFullImageUrl(trainer.profilePhoto)" cover />
+              <span v-else class="text-h4 font-weight-bold">
                 {{ trainer.fullName?.charAt(0)?.toUpperCase() }}
               </span>
             </v-avatar>
@@ -111,6 +112,26 @@
                   :rules="[r.required]"
                   :disabled="saving"
                 />
+              </v-col>
+              <v-col cols="12">
+                <div class="d-flex align-center gap-4">
+                  <v-avatar size="64" class="border" rounded="lg">
+                    <v-img v-if="form.profilePhoto" :src="getFullImageUrl(form.profilePhoto)" cover />
+                    <v-icon v-else>mdi-account</v-icon>
+                  </v-avatar>
+                  <v-file-input
+                    label="Tải lên ảnh chân dung PT"
+                    variant="outlined"
+                    rounded="lg"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-camera"
+                    accept="image/*"
+                    hide-details
+                    @change="handleFileChange"
+                    :loading="uploading"
+                    :disabled="saving"
+                  ></v-file-input>
+                </div>
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
@@ -232,6 +253,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTrainerStore } from '@/stores/trainer'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import { uploadService } from '@/services/uploadService'
 
 const trainerStore = useTrainerStore()
 const route = useRoute()
@@ -241,10 +263,35 @@ const formDialog = ref(false)
 const deleteDialog = ref(false)
 const isEdit = ref(false)
 const saving = ref(false)
+const uploading = ref(false)
 const deleting = ref(false)
 const selected = ref(null)
 const formRef = ref(null)
 const snack = ref({ show: false, message: '', color: 'success' })
+
+const getFullImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return (import.meta.env.VITE_API_URL || 'http://localhost:10000/api').split('/api')[0] + url
+}
+
+const handleFileChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  
+  uploading.value = true
+  try {
+    const res = await uploadService.uploadProfilePhoto(file)
+    if (res.url) {
+      form.value.profilePhoto = res.url
+      showSnack('Tải ảnh lên thành công!')
+    }
+  } catch (e) {
+    showSnack('Lỗi khi tải ảnh lên', 'error')
+  } finally {
+    uploading.value = false
+  }
+}
 
 const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0)
 
@@ -258,6 +305,7 @@ const defaultForm = {
   salary: 0,
   sessionRate: 0,
   bio: '', 
+  profilePhoto: '',
   isActive: true 
 }
 const form = ref({ ...defaultForm })
@@ -288,6 +336,7 @@ const openEdit = (trainer) => {
     salary: trainer.salary || 0,
     sessionRate: trainer.sessionRate || 0,
     bio: trainer.bio || '',
+    profilePhoto: trainer.profilePhoto || '',
     isActive: trainer.isActive
   }
   formDialog.value = true
