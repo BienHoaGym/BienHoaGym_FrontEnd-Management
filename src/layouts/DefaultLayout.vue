@@ -69,19 +69,19 @@
       location="left"
       width="280"
     >
-      <v-list class="pa-4">
-        <v-list-item
-          :prepend-avatar="authStore.userAvatar || `https://ui-avatars.com/api/?name=${authStore.userName}&background=b91c1c&color=fff&bold=true`"
-          class="py-2"
-        >
-          <template v-slot:title>
-            <span class="font-weight-bold text-body-1">{{ authStore.userName }}</span>
-          </template>
-          <template v-slot:subtitle>
-            <span class="text-red-darken-2 font-weight-medium">{{ authStore.translatedRole }}</span>
-          </template>
-        </v-list-item>
-      </v-list>
+        <div class="pa-4 d-flex align-center">
+          <staff-avatar 
+            :src="authStore.user?.profilePhoto" 
+            :full-name="authStore.userName" 
+            :role="authStore.userRole"
+            size="48"
+            class="mr-3"
+          />
+          <div class="overflow-hidden">
+            <div class="text-body-2 font-weight-bold text-white text-truncate">{{ authStore.userName }}</div>
+            <div class="text-caption text-red-darken-2 font-weight-medium text-truncate">{{ authStore.translatedRole }}</div>
+          </div>
+        </div>
 
       <v-divider class="mb-2" />
 
@@ -126,6 +126,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplay } from 'vuetify'
+import StaffAvatar from '@/components/common/StaffAvatar.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

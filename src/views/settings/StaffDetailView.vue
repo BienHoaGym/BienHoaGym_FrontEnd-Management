@@ -32,10 +32,14 @@
               gradient="to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.5)"
             ></v-img>
             <v-card-text class="text-center pt-0">
-              <v-avatar size="130" :color="getRoleColor(staff.roles?.[0])" class="elevation-10 staff-avatar-offset" variant="flat">
-                <v-img v-if="staff.profilePhoto" :src="getFullImageUrl(staff.profilePhoto)" cover />
-                <span v-else class="text-h1 font-weight-bold text-white">{{ staff.fullName?.charAt(0) }}</span>
-              </v-avatar>
+              <staff-avatar 
+                :src="staff.profilePhoto" 
+                :full-name="staff.fullName" 
+                :role="staff.roles?.[0]" 
+                size="130" 
+                elevation="10"
+                class="staff-avatar-offset"
+              />
               
               <div class="mt-4">
                 <h1 class="text-h4 font-weight-bold" style="letter-spacing: -0.5px;">{{ staff.fullName }}</h1>
@@ -268,6 +272,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { userService } from '@/services/userService'
 import { formatDate, formatCurrency, getFullImageUrl } from '@/utils/helpers'
+import StaffAvatar from '@/components/common/StaffAvatar.vue'
 
 const route = useRoute()
 const router = useRouter()

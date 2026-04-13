@@ -19,12 +19,12 @@
       >
         <v-card hover class="rounded-xl overflow-hidden" :class="!trainer.isActive ? 'opacity-60' : ''">
           <v-card-text class="text-center pt-6 pb-2">
-            <v-avatar color="primary" variant="tonal" size="80" class="mb-3">
-              <v-img v-if="trainer.profilePhoto" :src="getFullImageUrl(trainer.profilePhoto)" cover />
-              <span v-else class="text-h4 font-weight-bold">
-                {{ trainer.fullName?.charAt(0)?.toUpperCase() }}
-              </span>
-            </v-avatar>
+            <staff-avatar 
+              :src="trainer.profilePhoto" 
+              :full-name="trainer.fullName" 
+              role="Trainer"
+              size="80"
+            />
             <div class="text-h6 font-weight-bold">{{ trainer.fullName }}</div>
             <div class="text-caption text-blue-darken-2 font-weight-medium mb-2">{{ trainer.specialization || 'PT Huấn luyện' }}</div>
             
@@ -115,10 +115,14 @@
               </v-col>
               <v-col cols="12">
                 <div class="d-flex align-center gap-4">
-                  <v-avatar size="64" class="border" rounded="lg">
-                    <v-img v-if="form.profilePhoto" :src="getFullImageUrl(form.profilePhoto)" cover />
-                    <v-icon v-else>mdi-account</v-icon>
-                  </v-avatar>
+                  <staff-avatar 
+                    :src="form.profilePhoto" 
+                    :full-name="form.fullName || 'New Trainer'" 
+                    role="Trainer"
+                    size="64"
+                    rounded="lg"
+                    class="border"
+                  />
                   <v-file-input
                     label="Tải lên ảnh chân dung PT"
                     variant="outlined"
@@ -255,6 +259,7 @@ import { useTrainerStore } from '@/stores/trainer'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { uploadService } from '@/services/uploadService'
 import { getFullImageUrl } from '@/utils/helpers'
+import StaffAvatar from '@/components/common/StaffAvatar.vue'
 
 const trainerStore = useTrainerStore()
 const route = useRoute()

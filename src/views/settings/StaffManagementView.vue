@@ -46,10 +46,13 @@
       >
         <template #[`item.fullName`]="{ item }">
           <div class="d-flex align-center py-2">
-            <v-avatar :color="getRoleColor(item.role)" variant="tonal" size="40" class="mr-3">
-              <v-img v-if="item.profilePhoto" :src="getFullImageUrl(item.profilePhoto)" cover />
-              <v-icon v-else size="20">{{ getRoleIcon(item.role) }}</v-icon>
-            </v-avatar>
+            <staff-avatar 
+              :src="item.profilePhoto" 
+              :full-name="item.fullName" 
+              :role="item.roles?.[0]" 
+              size="40" 
+              class="mr-3"
+            />
             <div>
               <div class="font-weight-bold">{{ item.fullName }}</div>
               <div class="text-caption text-grey">{{ item.username }}</div>
@@ -133,10 +136,13 @@
               </v-col>
               <v-col cols="12">
                 <div class="d-flex align-center gap-4">
-                  <v-avatar size="64" class="border" rounded="lg">
-                    <v-img v-if="form.profilePhoto" :src="getFullImageUrl(form.profilePhoto)" cover />
-                    <v-icon v-else>mdi-account</v-icon>
-                  </v-avatar>
+                  <staff-avatar 
+                    :src="form.profilePhoto" 
+                    :full-name="form.fullName || 'New Staff'" 
+                    size="64" 
+                    rounded="lg"
+                    class="border"
+                  />
                   <v-file-input
                     label="Tải lên ảnh chân dung"
                     variant="outlined"
@@ -293,6 +299,7 @@ import { userService } from '@/services/userService'
 import { roleService } from '@/services/roleService'
 import { uploadService } from '@/services/uploadService'
 import { getFullImageUrl } from '@/utils/helpers'
+import StaffAvatar from '@/components/common/StaffAvatar.vue'
 
 const route = useRoute()
 

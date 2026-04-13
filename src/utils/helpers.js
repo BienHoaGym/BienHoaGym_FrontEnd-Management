@@ -75,13 +75,42 @@ export const debounce = (func, wait = 300) => {
   }
 }
 
+// Session-based cache for broken image URLs (404s)
+const deadUrls = new Set()
+
 /**
  * Resolve relative image URL to absolute backend URL
  */
 export const getFullImageUrl = (url) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
+  if (!url || deadUrls.has(url)) return ''
+  if (url.startsWith('http')) {
+    if (deadUrls.has(url)) return ''
+    return url
+  }
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:10000/api'
   const root = apiBase.split('/api')[0]
-  return `${root}${url.startsWith('/') ? '' : '/'}${url}`
+  const fullUrl = `${root}${url.startsWith('/') ? '' : '/'}${url}`
+  
+  // If the full resolved URL is also marked dead
+  if (deadUrls.has(fullUrl)) return ''
+  
+  return fullUrl
+}
+
+/**
+ * Mark a URL as broken so we don't try to load it again in this session
+ */
+export const markUrlAsDead = (url) => {
+  if (url) {
+    deadUrls.add(url)
+    // console.log(`[AssetHandler] URL marked as dead: ${url}`)
+  }
+}
+
+/**
+ * Check if a URL is currently in the dead list
+ */
+export const isUrlDead = (url) => {
+  if (!url) return true
+  return deadUrls.has(url)
 }
