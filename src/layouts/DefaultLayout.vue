@@ -71,7 +71,7 @@
     >
       <v-list class="pa-4">
         <v-list-item
-          :prepend-avatar="`https://ui-avatars.com/api/?name=${authStore.userName}&background=b91c1c&color=fff&bold=true`"
+          :prepend-avatar="authStore.userAvatar || `https://ui-avatars.com/api/?name=${authStore.userName}&background=b91c1c&color=fff&bold=true`"
           class="py-2"
         >
           <template v-slot:title>

@@ -267,7 +267,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { userService } from '@/services/userService'
-import { formatDate, formatCurrency } from '@/utils/helpers'
+import { formatDate, formatCurrency, getFullImageUrl } from '@/utils/helpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -277,11 +277,6 @@ const error = ref(null)
 const tab = ref('profile')
 const snack = ref({ show: false, message: '', color: 'success' })
 
-const getFullImageUrl = (url) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return (import.meta.env.VITE_API_BASE_URL || 'http://localhost:10000/api').split('/api')[0] + url
-}
 
 const fetchData = async () => {
   loading.value = true

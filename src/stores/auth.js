@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia'
 import { authService } from '@/services/authService'
 import { jwtDecode } from 'jwt-decode'
+import { getFullImageUrl } from '@/utils/helpers'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -18,6 +19,7 @@ export const useAuthStore = defineStore('auth', {
     userName: (state) => state.user?.fullName,
     userEmail: (state) => state.user?.email,
     userId: (state) => state.user?.id,
+    userAvatar: (state) => getFullImageUrl(state.user?.profilePhoto),
     translatedRole: (state) => {
       const role = state.user?.role
       const map = {

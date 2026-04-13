@@ -254,6 +254,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useTrainerStore } from '@/stores/trainer'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { uploadService } from '@/services/uploadService'
+import { getFullImageUrl } from '@/utils/helpers'
 
 const trainerStore = useTrainerStore()
 const route = useRoute()
@@ -269,11 +270,6 @@ const selected = ref(null)
 const formRef = ref(null)
 const snack = ref({ show: false, message: '', color: 'success' })
 
-const getFullImageUrl = (url) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return (import.meta.env.VITE_API_URL || 'http://localhost:10000/api').split('/api')[0] + url
-}
 
 const handleFileChange = async (event) => {
   const file = event.target.files?.[0]

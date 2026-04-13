@@ -292,6 +292,7 @@ import { useRoute } from 'vue-router'
 import { userService } from '@/services/userService'
 import { roleService } from '@/services/roleService'
 import { uploadService } from '@/services/uploadService'
+import { getFullImageUrl } from '@/utils/helpers'
 
 const route = useRoute()
 
@@ -309,11 +310,6 @@ const isTrainerSelected = computed(() => {
   return trainerRole && form.value.roleIds.includes(trainerRole.id)
 })
 
-const getFullImageUrl = (url) => {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return (import.meta.env.VITE_API_URL || 'http://localhost:10000/api').split('/api')[0] + url
-}
 
 const handleFileChange = async (event) => {
   const file = event.target.files[0]

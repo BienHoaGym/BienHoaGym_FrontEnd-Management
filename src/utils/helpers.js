@@ -74,3 +74,14 @@ export const debounce = (func, wait = 300) => {
     timeout = setTimeout(later, wait)
   }
 }
+
+/**
+ * Resolve relative image URL to absolute backend URL
+ */
+export const getFullImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:10000/api'
+  const root = apiBase.split('/api')[0]
+  return `${root}${url.startsWith('/') ? '' : '/'}${url}`
+}

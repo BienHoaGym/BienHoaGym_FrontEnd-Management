@@ -21,7 +21,7 @@
         >
           <v-card-title class="text-white d-flex align-end pl-6 pb-4" style="gap: 20px">
             <v-avatar size="100" color="white" class="elevation-4" style="border: 4px solid white; margin-bottom: -40px;">
-              <v-img v-if="trainer.profilePhoto" :src="trainer.profilePhoto" cover />
+              <v-img v-if="trainer.profilePhoto" :src="getFullImageUrl(trainer.profilePhoto)" cover />
               <span v-else class="text-h3 font-weight-bold text-primary">
                 {{ trainer.fullName?.charAt(0)?.toUpperCase() }}
               </span>
@@ -261,7 +261,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTrainerStore } from '@/stores/trainer'
 import { useMemberStore } from '@/stores/member'
-import { formatDate } from '@/utils/helpers'
+import { formatDate, getFullImageUrl } from '@/utils/helpers'
 
 const route = useRoute()
 const router = useRouter()
