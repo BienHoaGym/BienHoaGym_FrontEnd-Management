@@ -1,0 +1,1 @@
+import{l as e}from"./router-5JLapzmg.js";var t={async getAll(){return(await e.get(`/Users`)).data},async getById(t){return(await e.get(`/Users/${t}`)).data},async create(t){return(await e.post(`/Users`,t)).data},async update(t,n){return(await e.put(`/Users/${t}`,n)).data},async setUserRoles(t,n){return(await e.post(`/Users/${t}/roles`,n)).data}};export{t};
